@@ -136,13 +136,17 @@ result <- download_gaez_dataset(
 
 ## Data Sources
 
-All data is sourced from the FAO GAEZ v5 Data Portal: - Portal: https://gaez.fao.org/ - Documentation: https://www.fao.org/nr/gaez/ - Google Cloud Storage: https://storage.googleapis.com/fao-gismgr-gaez-v5-data/
+All data is sourced from the FAO GAEZ v5 Data Portal:
+
+- Portal: https://gaez.fao.org/
+- Model Documentation: https://github.com/un-fao/gaezv5/wiki
+- Google Cloud Storage: https://storage.googleapis.com/fao-gismgr-gaez-v5-data/
 
 ## Citation
 
 When using GAEZ v5 data, please cite:
 
-> FAO and IIASA. 2025. Global Agro-Ecological Zones v5 (GAEZ v5). FAO, Rome, Italy and IIASA, Laxenburg, Austria.
+> FAO & IIASA. 2025. Global Agro-ecological Zoning version 5 (GAEZ v5) Model Documentation. https://github.com/un-fao/gaezv5/wiki
 
 For this R package:
 

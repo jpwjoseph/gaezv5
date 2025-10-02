@@ -35,10 +35,8 @@
 
 * Comprehensive roxygen2 documentation for all functions
 * Package-level documentation with getting started guide
-* Three vignettes:
+* Vignette:
   - getting-started: Basic usage and common workflows
-  - advanced-usage: Batch downloads and complex scenarios
-  - data-dictionary: Complete reference for variables and crops
 
 ### Bug Fixes
 

@@ -314,17 +314,14 @@ help(package = "gaezv5")
 ## Further Reading
 
 - [GAEZ v5 Portal](https://gaez.fao.org/)
+- [GAEZ v5 Model Documentation](https://github.com/un-fao/gaezv5/wiki)
 - [FAO GAEZ Documentation](https://www.fao.org/nr/gaez/)
-- Package vignettes:
-  - Advanced Usage: `vignette("advanced-usage", package = "gaezv5")`
-  - Data Dictionary: `vignette("data-dictionary", package = "gaezv5")`
 
 ## Citation
 
 When using GAEZ v5 data, please cite:
 
-> FAO and IIASA. 2023. Global Agro-Ecological Zones v5 (GAEZ v5).
-> FAO, Rome, Italy and IIASA, Laxenburg, Austria.
+> FAO & IIASA. 2025. Global Agro-ecological Zoning version 5 (GAEZ v5) Model Documentation. https://github.com/un-fao/gaezv5/wiki
 
 ```{r}
 citation("gaezv5")
