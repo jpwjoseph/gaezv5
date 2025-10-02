@@ -1,0 +1,43 @@
+Package: gaezv5
+Type: Package
+Title: Download and Process GAEZ v5 Agricultural Data
+Version: 0.1.0
+Authors@R: c(
+    person("Julian", "Joseph",
+           email = "joseph@iiasa.ac.at",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0000-0000-0000")),
+    person("IIASA", role = "cph")
+    )
+Description: Tools for downloading and working with Global Agro-Ecological Zones
+    (GAEZ) version 5 data from the Food and Agriculture Organization (FAO).
+    GAEZ v5 provides comprehensive global data on agricultural potential, crop
+    suitability, attainable yields, and agro-climatic resources. This package
+    simplifies data access through intuitive functions for searching variables,
+    building download URLs, and batch downloading datasets across multiple crops,
+    scenarios, and time periods.
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+URL: https://github.com/jpwjoseph/gaezv5
+BugReports: https://github.com/jpwjoseph/gaezv5/issues
+Depends:
+    R (>= 4.0.0)
+Imports:
+    dplyr (>= 1.0.0),
+    httr (>= 1.4.0),
+    stringr (>= 1.4.0),
+    tibble (>= 3.0.0),
+    tidyr (>= 1.0.0),
+    purrr (>= 0.3.0),
+    tools
+Suggests:
+    terra (>= 1.5.0),
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    ggplot2,
+    sf
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.0
+VignetteBuilder: knitr

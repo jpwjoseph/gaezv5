@@ -1,0 +1,331 @@
+---
+title: "Getting Started with gaezv5"
+author: "Julian Joseph"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with gaezv5}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Introduction
+
+The `gaezv5` package provides tools for downloading and working with Global Agro-Ecological Zones (GAEZ) version 5 data from the Food and Agriculture Organization (FAO). This vignette will guide you through the basic usage of the package.
+
+## What is GAEZ v5?
+
+GAEZ v5 provides comprehensive global data on:
+
+- Agricultural potential and crop suitability
+- Attainable and actual crop yields
+- Agro-climatic resources (temperature, precipitation, growing periods)
+- Land and water resources
+- Yield and production gaps
+
+The data is available at high spatial resolution (~9km) and includes:
+
+- Historical periods (1981-2000, 2001-2020)
+- Future projections (2021-2100) under different climate scenarios
+- Multiple input levels (high/low) and water management systems (irrigated/rainfed)
+- Over 60 crop types
+
+## Installation
+
+```{r}
+# Install from GitHub
+# devtools::install_github("jpwjoseph/gaezv5")
+
+library(gaezv5)
+```
+
+## Basic Workflow
+
+### 1. Discover Available Data
+
+First, explore what crops and variables are available:
+
+```{r}
+# List all available crops (theme 4 is most common)
+crops <- list_gaez_crops(theme = 4)
+head(crops)
+
+# Filter to cereals only
+cereals <- list_gaez_crops(crop_group = "cereal", theme = 4)
+print(cereals[, c("gaez_crop_code", "name")])
+
+# Browse all variables
+head(gaez_variables)
+
+# Find yield-related variables
+yield_vars <- subset(gaez_variables,
+                     grepl("yield", variable_name, ignore.case = TRUE))
+print(yield_vars[, c("variable_code", "variable_name")])
+```
+
+### 2. Look Up Specific Codes
+
+Use lookup functions to find the exact codes you need:
+
+```{r}
+# Look up a crop by name
+maize_code <- lookup_gaez_crop("maize", theme = 4)
+print(maize_code)  # Returns "MZE"
+
+# Look up a variable
+yield_var <- lookup_gaez_variable("attainable yield")
+print(yield_var$variable_code)  # Returns "RES05-YX"
+```
+
+### 3. Download Data
+
+Download a single dataset:
+
+```{r}
+# Download maize attainable yield for historical period (2001-2020)
+result <- download_gaez_dataset(
+  crop = "maize",
+  variable = "RES05-YX",  # Attainable yield
+  time_period = "HP0120",
+  climate_model = "AGERA5",
+  water_management_level = "HRLM"  # High input, rain-fed
+)
+
+# Check the result
+if (result$success) {
+  print(paste("Downloaded:", result$file_path))
+  print(paste("Size:", round(result$file_size / 1024^2, 2), "MB"))
+} else {
+  print(paste("Download failed:", result$message))
+}
+```
+
+### 4. Work with Downloaded Data
+
+Load and visualize the data:
+
+```{r}
+library(terra)
+
+# Load the raster
+r <- rast(result$file_path)
+
+# Basic info
+print(r)
+
+# Plot
+plot(r, main = "Maize Attainable Yield (2001-2020, Rain-fed)")
+
+# Get summary statistics
+global(r, "mean", na.rm = TRUE)
+global(r, "max", na.rm = TRUE)
+```
+
+## Common Use Cases
+
+### Compare Historical vs Future Scenarios
+
+```{r}
+# Download historical period
+hist_result <- download_gaez_dataset(
+  crop = "wheat",
+  time_period = "HP0120",    # 2001-2020
+  climate_model = "AGERA5"
+)
+
+# Download future period
+future_result <- download_gaez_dataset(
+  crop = "wheat",
+  time_period = "FP4160",    # 2041-2060
+  climate_model = "ENSEMBLE",
+  ssp = "SSP370"             # Medium emissions scenario
+)
+
+# Load and compare
+hist_r <- rast(hist_result$file_path)
+future_r <- rast(future_result$file_path)
+
+# Calculate change
+change <- future_r - hist_r
+plot(change, main = "Wheat Yield Change (2041-2060 vs 2001-2020)")
+```
+
+### Compare Irrigated vs Rain-fed
+
+```{r}
+# Download both scenarios
+results <- batch_download_gaez_datasets(
+  crops = "rice",
+  water_management_levels = c("HRLM", "HILM"),  # Rain-fed vs Irrigated
+  time_period = "HP0120",
+  climate_model = "AGERA5"
+)
+
+# Load and compare
+rainfed <- rast(results[[1]]$file_path)
+irrigated <- rast(results[[2]]$file_path)
+
+# Calculate irrigation benefit
+irrigation_gain <- irrigated - rainfed
+plot(irrigation_gain, main = "Rice Yield Gain from Irrigation")
+```
+
+### Batch Download Multiple Crops
+
+```{r}
+# Download multiple crops for the same scenario
+niger_crops <- c("pearl millet", "sorghum", "maize", "cowpea")
+
+results <- batch_download_gaez_datasets(
+  crops = niger_crops,
+  time_period = "HP0120",
+  climate_model = "AGERA5",
+  verbose = FALSE  # Reduce output
+)
+
+# Check success rate
+successes <- sum(sapply(results, function(x) x$success))
+print(paste(successes, "out of", length(results), "downloads succeeded"))
+
+# List downloaded files
+files <- list_downloaded_files()
+print(files)
+```
+
+## File Management
+
+The package includes utilities for managing downloaded files:
+
+```{r}
+# List all downloaded GAEZ files
+files <- list_downloaded_files()
+print(files[, c("filename", "size_mb", "modified")])
+
+# Get total size
+total_gb <- sum(files$size_mb) / 1024
+print(paste("Total downloaded:", round(total_gb, 2), "GB"))
+
+# Verify a file's integrity
+is_valid <- verify_file_integrity(files$path[1])
+
+# Clear cache (use with caution!)
+# clear_download_cache(confirm = TRUE)
+```
+
+## Advanced Features
+
+### Build Custom URLs
+
+If you need to construct URLs manually:
+
+```{r}
+# Build a URL
+url <- build_gaez_url(
+  variable = "RES05-YX",
+  crop = "sorghum",
+  time_period = "FP4160",
+  climate_model = "MRI-ESM2-0",  # Specific climate model
+  ssp = "SSP370",
+  water_management_level = "HILM"  # Irrigated
+)
+
+print(url)
+
+# Check if the URL exists before downloading
+url_exists <- check_url_exists(url)
+if (url_exists) {
+  result <- download_gaez_dataset(
+    variable = "RES05-YX",
+    crop = "sorghum",
+    time_period = "FP4160",
+    climate_model = "MRI-ESM2-0",
+    ssp = "SSP370",
+    water_management_level = "HILM"
+  )
+}
+```
+
+### Using Year Ranges
+
+Instead of time period codes, you can specify years:
+
+```{r}
+result <- download_gaez_dataset(
+  crop = "maize",
+  start_year = 2041,
+  end_year = 2060,
+  ssp = "SSP370"
+)
+```
+
+## Understanding GAEZ Codes
+
+### Time Periods
+
+- `HP8100`: Historical 1981-2000
+- `HP0120`: Historical 2001-2020
+- `FP2140`: Future 2021-2040
+- `FP4160`: Future 2041-2060
+- `FP6180`: Future 2061-2080
+- `FP8100`: Future 2081-2100
+
+### Climate Models
+
+- `AGERA5`: Historical periods only
+- `ENSEMBLE`: Multi-model mean (recommended for future)
+- `GFDL-ESM4`, `IPSL-CM6A-LR`, `MPI-ESM1-2-HR`, `MRI-ESM2-0`, `UKESM1-0-LL`: Individual GCMs
+
+### SSP Scenarios
+
+- `HIST`: Historical scenario
+- `SSP126`: Low emissions (Paris Agreement target)
+- `SSP370`: Medium emissions (current policies)
+- `SSP585`: High emissions (worst case)
+
+### Water Management
+
+- `HRLM`: High input, Rain-fed, Low management
+- `HILM`: High input, Irrigated, Low management
+- `LRLM`: Low input, Rain-fed, Low management
+- `LILM`: Low input, Irrigated, Low management
+
+## Getting Help
+
+```{r}
+# View examples
+show_gaez_examples()
+
+# Get help on specific functions
+?download_gaez_dataset
+?lookup_gaez_crop
+
+# Browse all documentation
+help(package = "gaezv5")
+```
+
+## Further Reading
+
+- [GAEZ v5 Portal](https://gaez.fao.org/)
+- [FAO GAEZ Documentation](https://www.fao.org/nr/gaez/)
+- Package vignettes:
+  - Advanced Usage: `vignette("advanced-usage", package = "gaezv5")`
+  - Data Dictionary: `vignette("data-dictionary", package = "gaezv5")`
+
+## Citation
+
+When using GAEZ v5 data, please cite:
+
+> FAO and IIASA. 2023. Global Agro-Ecological Zones v5 (GAEZ v5).
+> FAO, Rome, Italy and IIASA, Laxenburg, Austria.
+
+```{r}
+citation("gaezv5")
+```
