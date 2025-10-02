@@ -6,7 +6,7 @@ Authors@R: c(
     person("Julian", "Joseph",
            email = "joseph@iiasa.ac.at",
            role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0000-0000-0000")),
+           comment = c(ORCID = "0000-0002-3844-7807")),
     person("IIASA", role = "cph")
     )
 Description: Tools for downloading and working with Global Agro-Ecological Zones
