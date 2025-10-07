@@ -110,10 +110,6 @@ The `gaezv5` package provides comprehensive tools for downloading and working wi
   - Mask to polygon boundaries
   - Extract zonal statistics
 
-* **Time Series Support**:
-  - Enhanced support for time series variables
-  - Functions to download and combine multi-year data
-
 * **Visualization**:
   - Quick visualization functions
   - Side-by-side scenario comparison
@@ -124,11 +120,6 @@ The `gaezv5` package provides comprehensive tools for downloading and working wi
   - Yield gap analysis functions
   - Climate change impact assessment tools
   - Multi-crop suitability analysis
-
-* **Performance Improvements**:
-  - Parallel downloads for batch operations
-  - Resume interrupted batch downloads
-  - Download progress bars
 
 ## Notes
 
