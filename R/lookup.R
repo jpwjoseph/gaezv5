@@ -43,9 +43,12 @@ lookup_gaez_variable <- function(user_input) {
     )
   }
 
-  # First, try exact matches in variable_code and data_code columns
+  # Try exact matches (case-insensitive) in variable_code and data_code
   exact_matches <- gaez_variables |>
-    filter(variable_code == user_input | data_code == user_input)
+    filter(
+      toupper(variable_code) == toupper(user_input) |
+      toupper(data_code) == toupper(user_input)
+    )
 
   if (nrow(exact_matches) == 1) {
     message(paste("Found exact match for variable code:", user_input))

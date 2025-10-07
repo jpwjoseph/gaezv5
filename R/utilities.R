@@ -117,6 +117,32 @@ show_gaez_examples <- function() {
 }
 
 
+#' Print method for batch download results
+#'
+#' Provides clear summary of batch download operations
+#'
+#' @param x A gaez_batch_result object
+#' @param ... Additional arguments (ignored)
+#' @export
+print.gaez_batch_result <- function(x, ...) {
+  if (length(x) == 0) {
+    # Empty result - show error information
+    cat("=== GAEZ Batch Download (FAILED) ===\n")
+    cat("Error:", attr(x, "error_message"), "\n")
+    cat("Combinations attempted:", attr(x, "combinations_attempted", exact = TRUE), "\n")
+    cat("Valid combinations:", attr(x, "valid_combinations", exact = TRUE), "\n")
+  } else {
+    # Normal result with downloads
+    successes <- sum(sapply(x, function(r) isTRUE(r$success)))
+    cat("=== GAEZ Batch Download Results ===\n")
+    cat("Total downloads:", length(x), "\n")
+    cat("Successful:", successes, "\n")
+    cat("Failed:", length(x) - successes, "\n")
+  }
+  invisible(x)
+}
+
+
 #' Get country boundary for spatial cropping
 #'
 #' Retrieves or uses a country boundary as a terra SpatVector for cropping

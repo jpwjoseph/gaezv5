@@ -129,46 +129,55 @@ download_gaez_dataset <- function(variable = "RES05-YX",
     cat("\n[1/5] Building download URL...\n")
   }
 
-  tryCatch(
-    {
-      # Set non-interactive mode for automated processing
-      old_option <- getOption("gaez_testing_mode")
-      options(gaez_testing_mode = TRUE)
+  # Attempt to build download URL
+  url_result <- tryCatch({
+    # Enable testing mode to suppress interactive prompts
+    old_option <- getOption("gaez_testing_mode")
+    options(gaez_testing_mode = TRUE)
 
-      url <- build_gaez_url(
-        variable = variable,
-        time_period = time_period,
-        start_year = start_year,
-        end_year = end_year,
-        climate_model = climate_model,
-        ssp = ssp,
-        crop = crop,
-        water_management_level = water_management_level,
-        water_supply = water_supply,
-        resolution = resolution
-      )
+    url <- build_gaez_url(
+      variable = variable,
+      time_period = time_period,
+      start_year = start_year,
+      end_year = end_year,
+      climate_model = climate_model,
+      ssp = ssp,
+      crop = crop,
+      water_management_level = water_management_level,
+      water_supply = water_supply,
+      resolution = resolution
+    )
 
-      # Restore original option
-      options(gaez_testing_mode = old_option)
+    # Restore user's testing mode setting
+    options(gaez_testing_mode = old_option)
 
-      result$url <- url
-      if (verbose) {
-        cat("\u2713 URL built successfully\n")
-        cat("   URL:", url, "\n")
-      }
-    },
-    error = function(e) {
-      options(gaez_testing_mode = old_option)
-      result$message <- paste("Failed to build URL:", e$message)
-      if (verbose) {
-        cat("\u2717 URL building failed:", e$message, "\n")
-      }
-      return(result)
+    # Return success indicator with URL
+    list(success = TRUE, url = url, error = NULL)
+  }, error = function(e) {
+    # Restore setting even on error
+    options(gaez_testing_mode = old_option)
+
+    # Capture error message for reporting
+    list(success = FALSE, url = NULL, error = conditionMessage(e))
+  })
+
+  # Handle URL building failure
+  if (!url_result$success) {
+    result$message <- paste("Failed to build URL:", url_result$error)
+    result$validation_errors <- c(result$validation_errors, url_result$error)
+
+    if (verbose) {
+      cat("\u2717 URL building failed:", url_result$error, "\n")
     }
-  )
-
-  if (is.null(result$url)) {
     return(result)
+  }
+
+  # Extract successfully built URL
+  result$url <- url_result$url
+
+  if (verbose) {
+    cat("\u2713 URL built successfully\n")
+    cat("   URL:", result$url, "\n")
   }
 
   # ====================
@@ -352,7 +361,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
     # Basic file validation
     if (result$file_size > 0) {
       # Check if it's a valid raster file (basic check)
-      file_ext <- file_ext(filename)
+      file_ext <- tools::file_ext(filename)
       if (tolower(file_ext) == "tif") {
         if (verbose) cat("\u2713 File appears to be a valid GeoTIFF\n")
       }
@@ -520,8 +529,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #' @export
 #' @importFrom curl multi_download
 batch_download_gaez_datasets <- function(variables = "RES05-YX",
-                                          crops = "WHEA",
-                                          time_periods = NULL,
+                                          crops = "MZE",
+                                          time_periods = "HP0120",
                                           ssps = NULL,
                                           climate_models = NULL,
                                           water_management_levels = "HRLM",
@@ -576,6 +585,82 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
   }
   if (is.list(water_management_levels) && length(water_management_levels) > 0) {
     water_management_levels <- unlist(water_management_levels, use.names = FALSE)
+  }
+
+  # ====================
+  # INPUT VALIDATION
+  # ====================
+  # Validate parameters early to provide clear error messages
+
+  # Check for empty parameters
+  if (length(variables) == 0) {
+    stop("'variables' cannot be empty. Provide at least one variable code.", call. = FALSE)
+  }
+  if (length(crops) == 0) {
+    stop("'crops' cannot be empty. Provide at least one crop name or code.", call. = FALSE)
+  }
+  if (length(time_periods) == 0) {
+    stop("'time_periods' cannot be empty.", call. = FALSE)
+  }
+
+  # Check parameter types
+  if (!is.character(variables)) {
+    stop("'variables' must be a character vector", call. = FALSE)
+  }
+  if (!is.character(crops)) {
+    stop("'crops' must be a character vector", call. = FALSE)
+  }
+  if (!is.logical(parallel)) {
+    stop("'parallel' must be TRUE or FALSE", call. = FALSE)
+  }
+
+  # Validate time periods against known values
+  valid_periods <- c("HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100")
+  invalid_periods <- setdiff(time_periods, valid_periods)
+  if (length(invalid_periods) > 0) {
+    warning(
+      "Unrecognized time period(s): ", paste(invalid_periods, collapse=", "), "\n",
+      "Valid time periods: ", paste(valid_periods, collapse=", "),
+      call. = FALSE
+    )
+  }
+
+  # Validate SSP scenarios if provided
+  if (!is.null(ssps)) {
+    valid_ssps <- c("HIST", "SSP126", "SSP370", "SSP585")
+    invalid_ssps <- setdiff(ssps, valid_ssps)
+    if (length(invalid_ssps) > 0) {
+      warning(
+        "Unrecognized SSP scenario(s): ", paste(invalid_ssps, collapse=", "), "\n",
+        "Valid SSPs: ", paste(valid_ssps, collapse=", "),
+        call. = FALSE
+      )
+    }
+  }
+
+  # Validate climate models if provided
+  if (!is.null(climate_models)) {
+    valid_climate <- c("AGERA5", "ENSEMBLE", "GFDL-ESM4", "IPSL-CM6A-LR",
+                       "MPI-ESM1-2-HR", "MRI-ESM2-0", "UKESM1-0-LL")
+    invalid_climate <- setdiff(climate_models, valid_climate)
+    if (length(invalid_climate) > 0) {
+      warning(
+        "Unrecognized climate model(s): ", paste(invalid_climate, collapse=", "), "\n",
+        "Valid models: ", paste(valid_climate, collapse=", "),
+        call. = FALSE
+      )
+    }
+  }
+
+  # Validate water management levels
+  valid_wml <- c("HILM", "HRLM", "LILM", "LRLM")
+  invalid_wml <- setdiff(water_management_levels, valid_wml)
+  if (length(invalid_wml) > 0) {
+    warning(
+      "Unrecognized water management level(s): ", paste(invalid_wml, collapse=", "), "\n",
+      "Valid levels: ", paste(valid_wml, collapse=", "),
+      call. = FALSE
+    )
   }
 
   # Determine if time periods are historical or future
@@ -652,10 +737,39 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
   combinations <- combinations[valid_rows, ]
 
   if (nrow(combinations) == 0) {
-    cat("ERROR: No valid parameter combinations found.\n")
-    cat("Historical periods (HP*) require climate_model='AGERA5' and ssp='HIST'\n")
-    cat("Future periods (FP*) require GCM models and future SSPs (SSP126/SSP370/SSP585)\n")
-    return(list())
+    # Build helpful error message explaining validation rules
+    error_msg <- paste0(
+      "No valid parameter combinations found.\n\n",
+      "GAEZ v5 validation rules:\n",
+      "  \u2022 Historical periods (HP*) require: climate_model='AGERA5' and ssp='HIST'\n",
+      "  \u2022 Future periods (FP*) require: GCM models and SSP126/SSP370/SSP585\n\n",
+      "Parameters provided:\n",
+      "  \u2022 time_periods: ", paste(time_periods, collapse=", "), "\n",
+      "  \u2022 ssps: ", paste(ssps, collapse=", "), "\n",
+      "  \u2022 climate_models: ", paste(climate_models, collapse=", ")
+    )
+
+    cat("ERROR:", error_msg, "\n")
+
+    # Return structured empty result with metadata
+    # Calculate combinations attempted without expand.grid to avoid list type errors
+    # Ensure all parameters are properly unlisted for safe multiplication
+    safe_length <- function(x) {
+      if (is.null(x)) return(1)
+      if (is.list(x)) x <- unlist(x, use.names = FALSE)
+      return(length(x))
+    }
+
+    combinations_attempted <- safe_length(variables) * safe_length(crops) * safe_length(time_periods) *
+                               safe_length(ssps) * safe_length(climate_models) * safe_length(water_management_levels)
+
+    return(structure(
+      list(),
+      class = c("gaez_batch_result", "list"),
+      error_message = error_msg,
+      combinations_attempted = combinations_attempted,
+      valid_combinations = 0
+    ))
   }
 
   cat("=== Batch Download ===\n")
@@ -694,8 +808,8 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
     options(gaez_testing_mode = TRUE)
 
     for (i in seq_len(nrow(combinations))) {
-      # Build URL
-      tryCatch({
+      # Build URL with error capture
+      url_result <- tryCatch({
         url <- build_gaez_url(
           variable = combinations$variable[i],
           time_period = combinations$time_period[i],
@@ -704,10 +818,16 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
           crop = combinations$crop[i],
           water_management_level = combinations$water_management_level[i]
         )
-        urls[i] <- url
+        list(success = TRUE, url = url, error = NULL)
+      }, error = function(e) {
+        list(success = FALSE, url = NULL, error = conditionMessage(e))
+      })
+
+      if (url_result$success) {
+        urls[i] <- url_result$url
 
         # Determine destination file path
-        filename <- basename(url)
+        filename <- basename(url_result$url)
 
         if (is.null(download_dir)) {
           data_gaez_dir <- file.path("Data", "GAEZ")
@@ -731,18 +851,43 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
         if (!overwrite && file.exists(destfiles[i])) {
           to_download[i] <- FALSE
         }
-      }, error = function(e) {
+      } else {
+        # URL building failed - mark as failed
         urls[i] <- NA
         destfiles[i] <- NA
         to_download[i] <- FALSE
-      })
+        if (verbose_mode) {
+          cat("Warning: Failed to build URL for combination", i, ":", url_result$error, "\n")
+        }
+      }
     }
 
     options(gaez_testing_mode = old_option)
 
-    # Filter to only files that need downloading
+    # Separate files into those needing download vs already existing
     files_to_download <- which(to_download)
     already_exist <- which(!to_download)
+
+    # Check for duplicate destination filenames
+    # This can occur if URL construction is incomplete or parameters are identical
+    if (length(files_to_download) > 0) {
+      dup_mask <- duplicated(destfiles[files_to_download])
+      if (any(dup_mask)) {
+        # Identify unique duplicate files
+        dup_files <- unique(destfiles[files_to_download][dup_mask])
+
+        warning(
+          length(dup_files), " duplicate filename(s) detected. ",
+          "This may indicate identical parameter combinations.\n",
+          "Example: ", dup_files[1], "\n",
+          "Removing duplicates to proceed with download.",
+          call. = FALSE
+        )
+
+        # Keep only first occurrence of each filename
+        files_to_download <- files_to_download[!duplicated(destfiles[files_to_download])]
+      }
+    }
 
     if (length(already_exist) > 0) {
       cat(length(already_exist), "file(s) already exist (skipping)\n")

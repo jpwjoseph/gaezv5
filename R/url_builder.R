@@ -83,6 +83,15 @@ build_gaez_url <- function(variable = "RES05-YX",
                            water_management_level = "HRLM",
                            water_supply = "WSR",
                            resolution = NA) {
+  # Normalize inputs to uppercase for consistent matching
+  # GAEZ codes are case-sensitive but we accept lowercase for convenience
+  variable <- toupper(variable)
+  crop <- toupper(crop)
+  if (!is.null(climate_model)) climate_model <- toupper(climate_model)
+  if (!is.null(ssp)) ssp <- toupper(ssp)
+  water_management_level <- toupper(water_management_level)
+  water_supply <- toupper(water_supply)
+
   # Look up variable information
   var_info <- lookup_gaez_variable(variable)
 
@@ -145,7 +154,16 @@ build_gaez_url <- function(variable = "RES05-YX",
     first()
 
   if (!is.null(url_structure)) {
-    # Build filename parts based on theme structure
+    # Verify url_structure is properly formatted as a list
+    if (!is.list(url_structure) || length(url_structure) == 0) {
+      stop(
+        "URL structure configuration error for theme ", theme_num, ". ",
+        "Please report this issue.",
+        call. = FALSE
+      )
+    }
+
+    # Build filename parts based on theme-specific structure
     for (part in url_structure[[1]]) {
       component_value <- switch(
         part,
@@ -156,14 +174,33 @@ build_gaez_url <- function(variable = "RES05-YX",
         "crop" = crop_code,
         "water_management" = water_management_level,
         "water_supply" = water_supply,
-        "year" = time_period, # For time series data
+        "year" = time_period,  # Alias for time series
         NULL
       )
 
-      if (!is.null(component_value) && !is.na(component_value)) {
-        filename_parts <- c(filename_parts, component_value)
+      # Add component if valid
+      if (!is.null(component_value) &&
+          !is.na(component_value) &&
+          nchar(as.character(component_value)) > 0) {
+        filename_parts <- c(filename_parts, as.character(component_value))
       }
     }
+
+    # Sanity check: ensure we have more than just the base name
+    if (length(filename_parts) < 2) {
+      warning(
+        "URL construction resulted in ", length(filename_parts), " component(s). ",
+        "Expected multiple components for complete URL. ",
+        "File may not be accessible.",
+        call. = FALSE
+      )
+    }
+  } else {
+    stop(
+      "No URL structure defined for theme ", theme_num, ". ",
+      "This theme may not support direct downloads.",
+      call. = FALSE
+    )
   }
 
   # Create filename

@@ -1249,13 +1249,20 @@ message("✓ gaez_scenarios saved")
 
 gaez_url_structure <- tribble(
   ~theme, ~filename_parts,
-  1, "variable_code",
-  2, c("variable_code", "time_period", "climate_model", "ssp"),
-  3, c("variable_code", "time_period", "climate_model", "ssp", "crop", "water_management"),
-  4, c("variable_code", "time_period", "climate_model", "ssp", "crop", "water_management"),
-  5, c("variable_code", "crop", "water_supply"),
-  6, c("variable_code", "crop", "water_supply"),
-  9, c("variable_code", "year")
+  # Theme 1: Static maps (land resources, soils, terrain)
+  1, list(c("variable_code")),
+  # Theme 2: Agro-climatic resources (temperature, precipitation, etc.)
+  2, list(c("variable_code", "time_period", "climate_model", "ssp")),
+  # Theme 3: Agro-climatic potential yield (4-letter crop codes)
+  3, list(c("variable_code", "time_period", "climate_model", "ssp", "crop", "water_management")),
+  # Theme 4: Suitability & attainable yield (3-letter crop codes) - most common
+  4, list(c("variable_code", "time_period", "climate_model", "ssp", "crop", "water_management")),
+  # Theme 5: Actual yields & production
+  5, list(c("variable_code", "crop", "water_supply")),
+  # Theme 6: Yield & production gaps
+  6, list(c("variable_code", "crop", "water_supply")),
+  # Theme 9: Time series variants
+  9, list(c("variable_code", "year"))
 )
 
 # Save as package data
