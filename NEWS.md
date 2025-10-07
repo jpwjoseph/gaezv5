@@ -1,3 +1,58 @@
+# gaezv5 0.1.1
+
+## Major Enhancements
+
+### Parallel Downloads
+* **Parallel download support** in `batch_download_gaez_datasets()` using `curl::multi_download()`
+  - 3-6x faster for multiple files (depending on network and HTTP/2 support)
+  - Built-in progress bar showing download status
+  - Automatic HTTP/2 multiplexing when server supports it
+  - Resume capability for interrupted downloads
+  - Set `parallel = FALSE` to use sequential mode for debugging
+
+### Time Series Support
+* **Multiple time period downloads** in single batch operation
+  - Download historical and future periods together: `c("HP0120", "FP4160", "FP6180")`
+  - Automatic SSP/climate model pairing based on time period
+  - Smart validation filters invalid combinations (e.g., historical + future SSP)
+  - Ideal for climate change impact studies and time series analysis
+
+### Enhanced Parameter Handling
+* **Flexible parameter types** - now accepts both vectors and lists
+  - `crops = c("MZE", "WHE")` and `crops = list("MZE", "WHE")` both work
+  - Automatic type conversion for all vector parameters
+  - Fully backward compatible with existing code
+
+### Improved Documentation
+* Updated `batch_download_gaez_datasets()` documentation
+  - Added "Parameter Flexibility" section
+  - Added "Parallel Downloads" section with performance notes
+  - Added "Time Period and SSP/Climate Model Validation" details
+  - New examples showing time series downloads and parallel options
+
+## Bug Fixes
+
+* Fixed sequential mode parameter passing in `batch_download_gaez_datasets()`
+  - Resolved "unused arguments" error when calling `download_gaez_dataset()`
+  - Proper dots filtering to prevent parameter conflicts
+* Fixed `expand.grid()` type errors with list parameters
+  - Added automatic conversion of lists to atomic vectors
+  - Function now handles mixed list/vector parameter input gracefully
+* Enhanced validation logic for time period/SSP/climate model combinations
+
+## Performance Improvements
+
+* Parallel downloads using curl's native multi-download capability
+* Reduced redundant file existence checks
+* Optimized URL building for batch operations
+* Total download time reporting for batch operations
+
+## Dependencies
+
+* Added `curl (>= 5.0.0)` to Imports for parallel download support
+
+---
+
 # gaezv5 0.1.0
 
 ## Initial Release
