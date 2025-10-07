@@ -1,3 +1,30 @@
+# gaezv5 0.1.2 (Development)
+
+## New Features
+
+### Data Loading and Combination
+
+* **`load_gaez_data()`** - Streamlined one-function workflow for downloading and loading GAEZ data
+  - Automatically checks cache and downloads if needed
+  - Returns terra SpatRaster object ready for analysis
+  - Optional metadata return with `return_metadata = TRUE`
+  - Simplifies workflow: `maize <- load_gaez_data(crop = "maize", time_period = "HP0120")`
+
+* **`combine_gaez_batch()`** - Combine batch downloads into multi-layer datasets
+  - Takes `batch_download_gaez_datasets()` output and creates single SpatRaster
+  - Automatic layer naming from batch result parameters
+  - Optional NetCDF export with compression
+  - Ideal for time series analysis and scenario comparisons
+  - Example: Download multiple time periods and combine into single file
+
+## Changes
+
+* **Moved terra from Suggests to Imports**
+  - terra is now a core dependency for new loading/combination functions
+  - Existing functions still use `requireNamespace()` for backward compatibility
+
+---
+
 # gaezv5 0.1.1
 
 ## Major Enhancements

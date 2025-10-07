@@ -292,3 +292,244 @@ clear_download_cache <- function(confirm = FALSE,
 
   return(invisible(deleted_count))
 }
+
+
+#' Combine batch download results into multi-layer dataset
+#'
+#' Takes the output from \code{batch_download_gaez_datasets()} and combines all
+#' successfully downloaded rasters into a single multi-layer SpatRaster object.
+#' Optionally exports to NetCDF format for efficient multi-dimensional storage.
+#' This is useful for comparative analysis, time series, or scenario comparisons.
+#'
+#' @param batch_results List - Output from \code{batch_download_gaez_datasets()},
+#'   or a named list where each element contains a \code{file_path} component.
+#' @param output_file Character - Optional path for NetCDF export. If NULL,
+#'   only returns the SpatRaster object without saving. File extension should
+#'   be ".nc" for NetCDF format.
+#' @param format Character - Output format: "spatraster" (default) returns a
+#'   terra SpatRaster object, "netcdf" saves to NetCDF and returns the SpatRaster.
+#' @param layer_names Character vector - Custom layer names. If NULL, names are
+#'   automatically generated from the batch result names. Must match the number
+#'   of successful downloads.
+#' @param overwrite Logical - Whether to overwrite existing output file
+#'   (default: FALSE)
+#' @param verbose Logical - Whether to print progress messages (default: TRUE)
+#'
+#' @return A terra SpatRaster object with multiple layers. Each layer corresponds
+#'   to one successfully downloaded file from the batch.
+#'
+#' @details
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Filters batch results to only successful downloads
+#'   \item Loads each GeoTIFF file as a raster layer using terra
+#'   \item Combines all layers into a single SpatRaster object
+#'   \item Assigns meaningful layer names (e.g., "MZE_FP4160_SSP370_ENSEMBLE")
+#'   \item Optionally exports to NetCDF format with compression
+#' }
+#'
+#' ## NetCDF Export
+#' When \code{output_file} is specified or \code{format = "netcdf"}, the function
+#' exports the multi-layer raster to NetCDF format, which provides:
+#' \itemize{
+#'   \item Efficient compression for large datasets
+#'   \item Self-describing metadata
+#'   \item Wide compatibility with GIS and climate tools
+#'   \item Support for multi-dimensional arrays
+#' }
+#'
+#' ## Layer Naming
+#' If \code{layer_names = NULL}, layer names are automatically generated from the
+#' batch result names (typically format: "VARIABLE_CROP_TIMEPERIOD_SSP_CLIMATE_WATER").
+#' These names are cleaned to be valid R variable names and NetCDF dimension names.
+#'
+#' @examples
+#' \dontrun{
+#' # Download multiple crops for comparison
+#' results <- batch_download_gaez_datasets(
+#'   crops = c("maize", "wheat", "sorghum"),
+#'   time_period = "HP0120",
+#'   climate_model = "AGERA5"
+#' )
+#'
+#' # Combine into single multi-layer raster
+#' combined <- combine_gaez_batch(results)
+#' print(combined)  # Shows 3 layers
+#'
+#' # Access individual layers
+#' terra::plot(combined[[1]])  # Maize
+#' terra::plot(combined[[2]])  # Wheat
+#'
+#' # Export to NetCDF
+#' combined <- combine_gaez_batch(
+#'   results,
+#'   output_file = "crop_comparison.nc",
+#'   format = "netcdf"
+#' )
+#'
+#' # Time series example
+#' results <- batch_download_gaez_datasets(
+#'   crops = "maize",
+#'   time_periods = c("HP0120", "FP4160", "FP6180")
+#' )
+#' time_series <- combine_gaez_batch(results, output_file = "maize_timeseries.nc")
+#' }
+#'
+#' @seealso \code{\link{batch_download_gaez_datasets}}, \code{\link{load_gaez_data}}
+#'
+#' @export
+combine_gaez_batch <- function(batch_results,
+                                output_file = NULL,
+                                format = c("spatraster", "netcdf"),
+                                layer_names = NULL,
+                                overwrite = FALSE,
+                                verbose = TRUE) {
+  # Check if terra is available
+  if (!requireNamespace("terra", quietly = TRUE)) {
+    stop("Package 'terra' is required for this function. Please install it with: install.packages('terra')",
+      call. = FALSE
+    )
+  }
+
+  format <- match.arg(format)
+
+  # Validate input
+  if (!is.list(batch_results) || length(batch_results) == 0) {
+    stop("batch_results must be a non-empty list from batch_download_gaez_datasets()",
+      call. = FALSE
+    )
+  }
+
+  # Filter to successful downloads
+  successful <- sapply(batch_results, function(x) {
+    !is.null(x$success) && x$success && !is.null(x$file_path) && file.exists(x$file_path)
+  })
+
+  if (sum(successful) == 0) {
+    stop("No successful downloads found in batch_results", call. = FALSE)
+  }
+
+  success_results <- batch_results[successful]
+  n_layers <- length(success_results)
+
+  if (verbose) {
+    cat("=== Combining GAEZ Batch Results ===\n")
+    cat("Successful downloads:", n_layers, "/", length(batch_results), "\n")
+  }
+
+  # Extract file paths
+  file_paths <- sapply(success_results, function(x) x$file_path)
+
+  # Load all rasters
+  if (verbose) {
+    cat("Loading", n_layers, "raster layers...\n")
+  }
+
+  raster_list <- list()
+  for (i in seq_along(file_paths)) {
+    tryCatch(
+      {
+        raster_list[[i]] <- terra::rast(file_paths[i])
+        if (verbose) {
+          cat("  [", i, "/", n_layers, "] Loaded:", basename(file_paths[i]), "\n")
+        }
+      },
+      error = function(e) {
+        warning("Failed to load raster: ", file_paths[i], " - ", e$message)
+        raster_list[[i]] <- NULL
+      }
+    )
+  }
+
+  # Remove any failed loads
+  raster_list <- raster_list[!sapply(raster_list, is.null)]
+
+  if (length(raster_list) == 0) {
+    stop("Failed to load any raster files", call. = FALSE)
+  }
+
+  # Combine into single SpatRaster
+  if (verbose) {
+    cat("Combining layers into single SpatRaster...\n")
+  }
+
+  combined <- do.call(c, raster_list)
+
+  # Set layer names
+  if (!is.null(layer_names)) {
+    if (length(layer_names) != terra::nlyr(combined)) {
+      warning(
+        "layer_names length (", length(layer_names), ") does not match number of layers (",
+        terra::nlyr(combined), "). Using auto-generated names."
+      )
+      layer_names <- NULL
+    }
+  }
+
+  if (is.null(layer_names)) {
+    # Generate names from batch result names
+    layer_names <- names(success_results)
+    if (is.null(layer_names)) {
+      layer_names <- paste0("layer_", seq_len(terra::nlyr(combined)))
+    } else {
+      # Clean names to be valid R/NetCDF names
+      layer_names <- make.names(layer_names)
+    }
+  }
+
+  names(combined) <- layer_names
+
+  if (verbose) {
+    cat("Created SpatRaster with", terra::nlyr(combined), "layers\n")
+    cat("Dimensions:", terra::nrow(combined), "rows x", terra::ncol(combined), "cols\n")
+    cat("CRS:", as.character(terra::crs(combined)), "\n")
+  }
+
+  # Export to NetCDF if requested
+  if (!is.null(output_file) || format == "netcdf") {
+    if (is.null(output_file)) {
+      output_file <- "gaez_combined.nc"
+    }
+
+    # Ensure .nc extension
+    if (!grepl("\\.nc$", output_file, ignore.case = TRUE)) {
+      output_file <- paste0(tools::file_path_sans_ext(output_file), ".nc")
+    }
+
+    # Check if file exists
+    if (file.exists(output_file) && !overwrite) {
+      stop(
+        "Output file already exists: ", output_file,
+        "\nSet overwrite=TRUE to replace it.",
+        call. = FALSE
+      )
+    }
+
+    if (verbose) {
+      cat("Exporting to NetCDF:", output_file, "\n")
+    }
+
+    tryCatch(
+      {
+        terra::writeCDF(combined, output_file, overwrite = overwrite, compression = 4)
+        if (verbose) {
+          cat("NetCDF export successful\n")
+          cat("File size:", round(file.size(output_file) / 1024^2, 2), "MB\n")
+        }
+      },
+      error = function(e) {
+        stop("Failed to export NetCDF: ", e$message, call. = FALSE)
+      }
+    )
+  }
+
+  if (verbose) {
+    cat("\n=== Summary ===\n")
+    cat("Layers:", paste(layer_names, collapse = ", "), "\n")
+    if (!is.null(output_file) && file.exists(output_file)) {
+      cat("NetCDF file:", output_file, "\n")
+    }
+  }
+
+  return(combined)
+}

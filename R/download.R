@@ -879,3 +879,179 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 
   return(results)
 }
+
+
+#' Load GAEZ data into R workspace
+#'
+#' A convenient wrapper around \code{download_gaez_dataset()} that downloads
+#' (if needed) and immediately loads GAEZ data into R as a terra SpatRaster
+#' object. Automatically checks if the file is already cached locally to avoid
+#' redundant downloads. This provides a streamlined one-function workflow for
+#' accessing GAEZ data.
+#'
+#' @inheritParams download_gaez_dataset
+#' @param return_metadata Logical - If TRUE, returns a list containing both the
+#'   SpatRaster object and the download metadata. If FALSE (default), returns
+#'   only the SpatRaster object.
+#'
+#' @return If \code{return_metadata = FALSE} (default), returns a terra SpatRaster
+#'   object. If \code{return_metadata = TRUE}, returns a list with two elements:
+#'   \itemize{
+#'     \item \code{raster}: The terra SpatRaster object
+#'     \item \code{metadata}: Download result metadata (file path, URL, size, etc.)
+#'   }
+#'
+#' @details
+#' The function performs the following workflow:
+#' \enumerate{
+#'   \item Calls \code{download_gaez_dataset()} with provided parameters
+#'   \item If file exists locally, download is skipped (fast)
+#'   \item If file doesn't exist, downloads from FAO Google Cloud Storage
+#'   \item Loads the GeoTIFF file using \code{terra::rast()}
+#'   \item Returns the raster ready for analysis
+#' }
+#'
+#' ## Advantages over separate download + load
+#' \itemize{
+#'   \item Single function call simplifies workflow
+#'   \item Automatic caching - no need to manually check for existing files
+#'   \item Error handling combines download and load validation
+#'   \item Optional metadata return provides full download information
+#' }
+#'
+#' ## Memory considerations
+#' Large rasters may consume significant memory. For very large datasets or
+#' limited RAM, consider working with file paths and loading subsets as needed.
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage - load maize yield data
+#' maize <- load_gaez_data(
+#'   crop = "maize",
+#'   time_period = "HP0120",
+#'   climate_model = "AGERA5"
+#' )
+#' terra::plot(maize)
+#'
+#' # Load with metadata
+#' result <- load_gaez_data(
+#'   crop = "wheat",
+#'   time_period = "FP4160",
+#'   ssp = "SSP370",
+#'   return_metadata = TRUE
+#' )
+#' terra::plot(result$raster)
+#' print(result$metadata$file_path)
+#' print(result$metadata$file_size)
+#'
+#' # Compare scenarios by loading multiple datasets
+#' ssp126 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP126")
+#' ssp370 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP370")
+#' ssp585 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP585")
+#'
+#' # Calculate differences
+#' diff_370_126 <- ssp370 - ssp126
+#' terra::plot(diff_370_126, main = "Yield change: SSP370 vs SSP126")
+#'
+#' # If file already cached, loads instantly
+#' maize2 <- load_gaez_data(crop = "maize", time_period = "HP0120")  # No download!
+#' }
+#'
+#' @seealso
+#' \code{\link{download_gaez_dataset}} for download-only functionality,
+#' \code{\link{batch_download_gaez_datasets}} for downloading multiple files,
+#' \code{\link{combine_gaez_batch}} for combining multiple rasters
+#'
+#' @export
+load_gaez_data <- function(variable = "RES05-YX",
+                            time_period = "FP4160",
+                            start_year = NULL,
+                            end_year = NULL,
+                            climate_model = NULL,
+                            ssp = "SSP370",
+                            crop = "WHEA",
+                            water_management_level = "HRLM",
+                            water_supply = "WSR",
+                            resolution = NA,
+                            download_dir = NULL,
+                            overwrite = FALSE,
+                            validate_inputs = TRUE,
+                            verbose = TRUE,
+                            return_metadata = FALSE) {
+  # Check if terra is available
+  if (!requireNamespace("terra", quietly = TRUE)) {
+    stop(
+      "Package 'terra' is required for this function. ",
+      "Please install it with: install.packages('terra')",
+      call. = FALSE
+    )
+  }
+
+  # Download the dataset (or find existing file)
+  download_result <- download_gaez_dataset(
+    variable = variable,
+    time_period = time_period,
+    start_year = start_year,
+    end_year = end_year,
+    climate_model = climate_model,
+    ssp = ssp,
+    crop = crop,
+    water_management_level = water_management_level,
+    water_supply = water_supply,
+    resolution = resolution,
+    download_dir = download_dir,
+    overwrite = overwrite,
+    validate_inputs = validate_inputs,
+    verbose = verbose
+  )
+
+  # Check if download was successful
+  if (!download_result$success) {
+    stop(
+      "Failed to download/locate GAEZ data: ",
+      download_result$message,
+      call. = FALSE
+    )
+  }
+
+  # Load the raster
+  if (verbose) {
+    if (download_result$already_exists) {
+      cat("Loading cached file...\n")
+    } else {
+      cat("Loading newly downloaded file...\n")
+    }
+  }
+
+  tryCatch(
+    {
+      raster <- terra::rast(download_result$file_path)
+
+      if (verbose) {
+        cat("Loaded SpatRaster:\n")
+        cat("  Dimensions:", terra::nrow(raster), "rows x", terra::ncol(raster), "cols\n")
+        cat("  Layers:", terra::nlyr(raster), "\n")
+        cat("  CRS:", as.character(terra::crs(raster)), "\n")
+        cat("  Extent:", paste(as.vector(terra::ext(raster)), collapse = ", "), "\n")
+      }
+
+      # Return based on return_metadata flag
+      if (return_metadata) {
+        return(list(
+          raster = raster,
+          metadata = download_result
+        ))
+      } else {
+        return(raster)
+      }
+    },
+    error = function(e) {
+      stop(
+        "Failed to load raster from file: ",
+        download_result$file_path,
+        "\nError: ", e$message,
+        call. = FALSE
+      )
+    }
+  )
+}
