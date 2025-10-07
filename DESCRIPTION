@@ -33,6 +33,7 @@ Imports:
     purrr (>= 0.3.0),
     curl (>= 5.0.0),
     terra (>= 1.5.0),
+    geodata (>= 0.5.0),
     tools
 Suggests:
     testthat (>= 3.0.0),

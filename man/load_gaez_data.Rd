@@ -19,6 +19,9 @@ load_gaez_data(
   overwrite = FALSE,
   validate_inputs = TRUE,
   verbose = TRUE,
+  country = NULL,
+  mask_to_boundary = TRUE,
+  keep_global = TRUE,
   return_metadata = FALSE
 )
 }
@@ -56,6 +59,22 @@ If FALSE and file exists, returns immediately without downloading.}
 
 \item{verbose}{Logical - Whether to show detailed progress messages (default: TRUE)}
 
+\item{country}{Character or SpatVector - Country to crop data to. Can be:
+\itemize{
+\item NULL (default) - Returns global data
+\item Country name (e.g., "Niger")
+\item ISO3 code (e.g., "NER")
+\item terra SpatVector boundary object
+}}
+
+\item{mask_to_boundary}{Logical - If TRUE (default) and country is specified,
+masks raster to country boundary (sets values outside boundary to NA).
+If FALSE, only crops to country extent (rectangular bounding box).}
+
+\item{keep_global}{Logical - If TRUE (default) and country is specified,
+retains the global downloaded file. If FALSE, deletes the global file
+after successful cropping to save disk space.}
+
 \item{return_metadata}{Logical - If TRUE, returns a list containing both the
 SpatRaster object and the download metadata. If FALSE (default), returns
 only the SpatRaster object.}
@@ -72,7 +91,8 @@ object. If \code{return_metadata = TRUE}, returns a list with two elements:
 A convenient wrapper around \code{download_gaez_dataset()} that downloads
 (if needed) and immediately loads GAEZ data into R as a terra SpatRaster
 object. Automatically checks if the file is already cached locally to avoid
-redundant downloads. This provides a streamlined one-function workflow for
+redundant downloads. Optionally crops data to country-level extents for
+regional analysis. This provides a streamlined one-function workflow for
 accessing GAEZ data.
 }
 \details{
@@ -94,15 +114,32 @@ The function performs the following workflow:
 }
 }
 
+\subsection{Country Cropping}{
+
+When \code{country} is specified, the function:
+\enumerate{
+\item Downloads global data (or uses cached version)
+\item Retrieves country boundary via \code{get_country_boundary()}
+\item Crops raster to country extent
+\item Optionally masks to exact country boundary
+\item Saves cropped data with "_\link{ISO3}" suffix
+\item Optionally deletes global file if \code{keep_global = FALSE}
+}
+
+Cropped files are saved in the same directory as global files with the
+country ISO3 code appended (e.g., "GAEZ-V5.RES05-YXX.FP4160.ENSEMBLE.SSP370.MZE.HRLM_NER.tif")
+}
+
 \subsection{Memory considerations}{
 
 Large rasters may consume significant memory. For very large datasets or
-limited RAM, consider working with file paths and loading subsets as needed.
+limited RAM, consider using country cropping to reduce data size, or work
+with file paths and load subsets as needed.
 }
 }
 \examples{
 \dontrun{
-# Basic usage - load maize yield data
+# Basic usage - load global maize yield data
 maize <- load_gaez_data(
   crop = "maize",
   time_period = "HP0120",
@@ -110,33 +147,56 @@ maize <- load_gaez_data(
 )
 terra::plot(maize)
 
+# Load country-level data
+niger_maize <- load_gaez_data(
+  crop = "maize",
+  time_period = "HP0120",
+  country = "Niger"
+)
+terra::plot(niger_maize, main = "Niger Maize Yield")
+
+# Load with ISO3 code and delete global file
+niger_wheat <- load_gaez_data(
+  crop = "wheat",
+  country = "NER",
+  keep_global = FALSE
+)
+
 # Load with metadata
 result <- load_gaez_data(
   crop = "wheat",
   time_period = "FP4160",
   ssp = "SSP370",
+  country = "Niger",
   return_metadata = TRUE
 )
 terra::plot(result$raster)
 print(result$metadata$file_path)
 print(result$metadata$file_size)
 
-# Compare scenarios by loading multiple datasets
-ssp126 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP126")
-ssp370 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP370")
-ssp585 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP585")
+# Compare scenarios for specific country
+ssp126 <- load_gaez_data(crop = "sorghum", time_period = "FP4160",
+                         ssp = "SSP126", country = "Niger")
+ssp370 <- load_gaez_data(crop = "sorghum", time_period = "FP4160",
+                         ssp = "SSP370", country = "Niger")
 
 # Calculate differences
 diff_370_126 <- ssp370 - ssp126
-terra::plot(diff_370_126, main = "Yield change: SSP370 vs SSP126")
+terra::plot(diff_370_126, main = "Niger: Yield change SSP370 vs SSP126")
 
-# If file already cached, loads instantly
-maize2 <- load_gaez_data(crop = "maize", time_period = "HP0120")  # No download!
+# Use custom boundary (e.g., administrative level 1)
+library(geodata)
+provinces <- gadm(country = "NER", level = 1)
+provincial_data <- load_gaez_data(
+  crop = "maize",
+  country = provinces
+)
 }
 
 }
 \seealso{
 \code{\link{download_gaez_dataset}} for download-only functionality,
 \code{\link{batch_download_gaez_datasets}} for downloading multiple files,
-\code{\link{combine_gaez_batch}} for combining multiple rasters
+\code{\link{combine_gaez_batch}} for combining multiple rasters,
+\code{\link{get_country_boundary}} for country boundary retrieval
 }

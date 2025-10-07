@@ -298,8 +298,9 @@ clear_download_cache <- function(confirm = FALSE,
 #'
 #' Takes the output from \code{batch_download_gaez_datasets()} and combines all
 #' successfully downloaded rasters into a single multi-layer SpatRaster object.
-#' Optionally exports to NetCDF format for efficient multi-dimensional storage.
-#' This is useful for comparative analysis, time series, or scenario comparisons.
+#' Optionally exports to NetCDF format for efficient multi-dimensional storage
+#' and supports country-level cropping for regional analysis. This is useful for
+#' comparative analysis, time series, or scenario comparisons.
 #'
 #' @param batch_results List - Output from \code{batch_download_gaez_datasets()},
 #'   or a named list where each element contains a \code{file_path} component.
@@ -311,6 +312,12 @@ clear_download_cache <- function(confirm = FALSE,
 #' @param layer_names Character vector - Custom layer names. If NULL, names are
 #'   automatically generated from the batch result names. Must match the number
 #'   of successful downloads.
+#' @param country Character or SpatVector - Country to crop combined data to.
+#'   Can be NULL (default, global), country name, ISO3 code, or SpatVector boundary.
+#' @param mask_to_boundary Logical - If TRUE (default) and country is specified,
+#'   masks raster to country boundary. If FALSE, only crops to extent.
+#' @param keep_global Logical - If TRUE (default) and country is specified,
+#'   retains the global files. If FALSE, deletes global files after cropping.
 #' @param overwrite Logical - Whether to overwrite existing output file
 #'   (default: FALSE)
 #' @param verbose Logical - Whether to print progress messages (default: TRUE)
@@ -373,15 +380,31 @@ clear_download_cache <- function(confirm = FALSE,
 #'   time_periods = c("HP0120", "FP4160", "FP6180")
 #' )
 #' time_series <- combine_gaez_batch(results, output_file = "maize_timeseries.nc")
+#'
+#' # Country-level time series
+#' niger_results <- batch_download_gaez_datasets(
+#'   crops = "rice",
+#'   time_periods = c("HP0120", "FP4160", "FP6180")
+#' )
+#' niger_time_series <- combine_gaez_batch(
+#'   niger_results,
+#'   country = "Niger",
+#'   output_file = "niger_rice_timeseries.nc",
+#'   keep_global = FALSE
+#' )
 #' }
 #'
-#' @seealso \code{\link{batch_download_gaez_datasets}}, \code{\link{load_gaez_data}}
+#' @seealso \code{\link{batch_download_gaez_datasets}}, \code{\link{load_gaez_data}},
+#' \code{\link{get_country_boundary}}
 #'
 #' @export
 combine_gaez_batch <- function(batch_results,
                                 output_file = NULL,
                                 format = c("spatraster", "netcdf"),
                                 layer_names = NULL,
+                                country = NULL,
+                                mask_to_boundary = TRUE,
+                                keep_global = TRUE,
                                 overwrite = FALSE,
                                 verbose = TRUE) {
   # Check if terra is available
@@ -479,10 +502,119 @@ combine_gaez_batch <- function(batch_results,
 
   names(combined) <- layer_names
 
-  if (verbose) {
+  if (verbose && is.null(country)) {
     cat("Created SpatRaster with", terra::nlyr(combined), "layers\n")
     cat("Dimensions:", terra::nrow(combined), "rows x", terra::ncol(combined), "cols\n")
     cat("CRS:", as.character(terra::crs(combined)), "\n")
+  }
+
+  # ====================
+  # COUNTRY CROPPING
+  # ====================
+  if (!is.null(country)) {
+    if (verbose) {
+      cat("\n=== Country Cropping ===\n")
+    }
+
+    # Get country boundary
+    boundary <- get_country_boundary(country, verbose = verbose)
+
+    # Extract ISO3 code for file naming
+    if (inherits(country, "SpatVector")) {
+      if ("ISO3" %in% names(boundary)) {
+        country_iso3 <- boundary$ISO3[1]
+      } else if ("ISO" %in% names(boundary)) {
+        country_iso3 <- boundary$ISO[1]
+      } else {
+        country_iso3 <- "CUSTOM"
+      }
+    } else {
+      country_db <- geodata::country_codes()
+      iso3_match <- country_db[toupper(country_db$ISO3) == toupper(country), ]
+      if (nrow(iso3_match) == 1) {
+        country_iso3 <- iso3_match$ISO3[1]
+      } else {
+        name_matches <- country_db[grepl(country, country_db$NAME, ignore.case = TRUE), ]
+        if (nrow(name_matches) >= 1) {
+          exact_match <- name_matches[tolower(name_matches$NAME) == tolower(country), ]
+          if (nrow(exact_match) == 1) {
+            country_iso3 <- exact_match$ISO3[1]
+          } else {
+            country_iso3 <- name_matches$ISO3[1]
+          }
+        } else {
+          country_iso3 <- "UNKNOWN"
+        }
+      }
+    }
+
+    # Reproject boundary if CRS doesn't match
+    if (!terra::same.crs(boundary, combined)) {
+      if (verbose) {
+        cat("  Reprojecting boundary to match raster CRS...\n")
+      }
+      boundary <- terra::project(boundary, terra::crs(combined))
+    }
+
+    # Crop to country extent
+    if (verbose) {
+      cat("  Cropping all layers to country extent...\n")
+    }
+    combined_cropped <- terra::crop(combined, boundary)
+
+    # Optionally mask to boundary
+    if (mask_to_boundary) {
+      if (verbose) {
+        cat("  Masking all layers to country boundary...\n")
+      }
+      combined <- terra::mask(combined_cropped, boundary)
+    } else {
+      combined <- combined_cropped
+    }
+
+    # Check if result has any data
+    if (all(is.na(terra::values(combined, mat = FALSE)))) {
+      warning(
+        "All values are NA after cropping to country boundary. ",
+        "The country may not overlap with the raster extent."
+      )
+    }
+
+    # Update output_file name if specified
+    if (!is.null(output_file)) {
+      base_name <- tools::file_path_sans_ext(output_file)
+      ext_name <- tools::file_ext(output_file)
+      if (ext_name == "") {
+        ext_name <- "nc"
+      }
+      # Only append ISO3 if not already in filename
+      if (!grepl(paste0("_", country_iso3, "$"), base_name)) {
+        output_file <- paste0(base_name, "_", country_iso3, ".", ext_name)
+      }
+    }
+
+    # Delete global files if requested
+    if (!keep_global) {
+      if (verbose) {
+        cat("  Deleting global files (keep_global = FALSE)...\n")
+      }
+      for (path in file_paths) {
+        if (file.exists(path)) {
+          file.remove(path)
+          if (verbose) {
+            cat("    Deleted:", basename(path), "\n")
+          }
+        }
+      }
+    }
+
+    if (verbose) {
+      cat("\nCreated Country-Cropped SpatRaster:\n")
+      cat("  Country:", country_iso3, "\n")
+      cat("  Layers:", terra::nlyr(combined), "\n")
+      cat("  Dimensions:", terra::nrow(combined), "rows x", terra::ncol(combined), "cols\n")
+      cat("  CRS:", as.character(terra::crs(combined)), "\n")
+    }
   }
 
   # Export to NetCDF if requested

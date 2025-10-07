@@ -2,6 +2,30 @@
 
 ## New Features
 
+### Country-Level Cropping ⭐
+* **`get_country_boundary()`** - New helper function for retrieving country boundaries
+  - Accepts country names, ISO3 codes, or custom SpatVector objects
+  - Downloads GADM boundaries with automatic caching
+  - Supports multiple administrative levels (0=country, 1=provinces, etc.)
+  - Smart country matching with fuzzy search and error suggestions
+
+* **`load_gaez_data()` now supports country cropping**
+  - New `country` parameter for automatic cropping to country-level data
+  - New `mask_to_boundary` parameter (TRUE=mask, FALSE=crop to extent only)
+  - New `keep_global` parameter to control global file retention
+  - Cropped files automatically named with "_[ISO3]" suffix
+  - Significantly reduces file sizes for regional analysis
+  - Examples:
+    - `load_gaez_data(crop = "maize", country = "Niger")`
+    - `load_gaez_data(crop = "wheat", country = "NER", keep_global = FALSE)`
+
+* **`combine_gaez_batch()` now supports country cropping**
+  - Same country cropping parameters as `load_gaez_data()`
+  - Crops all layers in batch to specified country
+  - Automatic NetCDF filename updates with ISO3 codes
+  - Option to delete global files after cropping
+  - Perfect for country-specific time series and scenario analysis
+
 ### Data Loading and Combination
 
 * **`load_gaez_data()`** - Streamlined one-function workflow for downloading and loading GAEZ data
@@ -19,9 +43,20 @@
 
 ## Changes
 
+* **Added geodata to Imports**
+  - Required for GADM boundary downloads in country cropping features
+  - Version: geodata (>= 0.5.0)
+
 * **Moved terra from Suggests to Imports**
   - terra is now a core dependency for new loading/combination functions
   - Existing functions still use `requireNamespace()` for backward compatibility
+
+## Performance Improvements
+
+* **Reduced file sizes**: Country-level data is 10-100x smaller than global datasets
+* **Faster loading**: Smaller cropped files load much faster into R
+* **Storage efficiency**: Optional deletion of global files saves disk space
+* **Smart caching**: Cropped files are cached and reused on subsequent calls
 
 ---
 
@@ -133,8 +168,6 @@ The `gaezv5` package provides comprehensive tools for downloading and working wi
 ### Version 0.2.0 (Planned)
 
 * **Spatial Operations**:
-  - Crop rasters to spatial extent
-  - Mask to polygon boundaries
   - Extract zonal statistics
 
 * **Visualization**:

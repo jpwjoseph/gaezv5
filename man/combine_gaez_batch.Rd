@@ -9,6 +9,9 @@ combine_gaez_batch(
   output_file = NULL,
   format = c("spatraster", "netcdf"),
   layer_names = NULL,
+  country = NULL,
+  mask_to_boundary = TRUE,
+  keep_global = TRUE,
   overwrite = FALSE,
   verbose = TRUE
 )
@@ -28,6 +31,15 @@ terra SpatRaster object, "netcdf" saves to NetCDF and returns the SpatRaster.}
 automatically generated from the batch result names. Must match the number
 of successful downloads.}
 
+\item{country}{Character or SpatVector - Country to crop combined data to.
+Can be NULL (default, global), country name, ISO3 code, or SpatVector boundary.}
+
+\item{mask_to_boundary}{Logical - If TRUE (default) and country is specified,
+masks raster to country boundary. If FALSE, only crops to extent.}
+
+\item{keep_global}{Logical - If TRUE (default) and country is specified,
+retains the global files. If FALSE, deletes global files after cropping.}
+
 \item{overwrite}{Logical - Whether to overwrite existing output file
 (default: FALSE)}
 
@@ -40,8 +52,9 @@ to one successfully downloaded file from the batch.
 \description{
 Takes the output from \code{batch_download_gaez_datasets()} and combines all
 successfully downloaded rasters into a single multi-layer SpatRaster object.
-Optionally exports to NetCDF format for efficient multi-dimensional storage.
-This is useful for comparative analysis, time series, or scenario comparisons.
+Optionally exports to NetCDF format for efficient multi-dimensional storage
+and supports country-level cropping for regional analysis. This is useful for
+comparative analysis, time series, or scenario comparisons.
 }
 \details{
 The function performs the following steps:
@@ -101,9 +114,22 @@ results <- batch_download_gaez_datasets(
   time_periods = c("HP0120", "FP4160", "FP6180")
 )
 time_series <- combine_gaez_batch(results, output_file = "maize_timeseries.nc")
+
+# Country-level time series
+niger_results <- batch_download_gaez_datasets(
+  crops = "rice",
+  time_periods = c("HP0120", "FP4160", "FP6180")
+)
+niger_time_series <- combine_gaez_batch(
+  niger_results,
+  country = "Niger",
+  output_file = "niger_rice_timeseries.nc",
+  keep_global = FALSE
+)
 }
 
 }
 \seealso{
-\code{\link{batch_download_gaez_datasets}}, \code{\link{load_gaez_data}}
+\code{\link{batch_download_gaez_datasets}}, \code{\link{load_gaez_data}},
+\code{\link{get_country_boundary}}
 }

@@ -886,10 +886,24 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 #' A convenient wrapper around \code{download_gaez_dataset()} that downloads
 #' (if needed) and immediately loads GAEZ data into R as a terra SpatRaster
 #' object. Automatically checks if the file is already cached locally to avoid
-#' redundant downloads. This provides a streamlined one-function workflow for
+#' redundant downloads. Optionally crops data to country-level extents for
+#' regional analysis. This provides a streamlined one-function workflow for
 #' accessing GAEZ data.
 #'
 #' @inheritParams download_gaez_dataset
+#' @param country Character or SpatVector - Country to crop data to. Can be:
+#'   \itemize{
+#'     \item NULL (default) - Returns global data
+#'     \item Country name (e.g., "Niger")
+#'     \item ISO3 code (e.g., "NER")
+#'     \item terra SpatVector boundary object
+#'   }
+#' @param mask_to_boundary Logical - If TRUE (default) and country is specified,
+#'   masks raster to country boundary (sets values outside boundary to NA).
+#'   If FALSE, only crops to country extent (rectangular bounding box).
+#' @param keep_global Logical - If TRUE (default) and country is specified,
+#'   retains the global downloaded file. If FALSE, deletes the global file
+#'   after successful cropping to save disk space.
 #' @param return_metadata Logical - If TRUE, returns a list containing both the
 #'   SpatRaster object and the download metadata. If FALSE (default), returns
 #'   only the SpatRaster object.
@@ -919,13 +933,28 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 #'   \item Optional metadata return provides full download information
 #' }
 #'
+#' ## Country Cropping
+#' When \code{country} is specified, the function:
+#' \enumerate{
+#'   \item Downloads global data (or uses cached version)
+#'   \item Retrieves country boundary via \code{get_country_boundary()}
+#'   \item Crops raster to country extent
+#'   \item Optionally masks to exact country boundary
+#'   \item Saves cropped data with "_[ISO3]" suffix
+#'   \item Optionally deletes global file if \code{keep_global = FALSE}
+#' }
+#'
+#' Cropped files are saved in the same directory as global files with the
+#' country ISO3 code appended (e.g., "GAEZ-V5.RES05-YXX.FP4160.ENSEMBLE.SSP370.MZE.HRLM_NER.tif")
+#'
 #' ## Memory considerations
 #' Large rasters may consume significant memory. For very large datasets or
-#' limited RAM, consider working with file paths and loading subsets as needed.
+#' limited RAM, consider using country cropping to reduce data size, or work
+#' with file paths and load subsets as needed.
 #'
 #' @examples
 #' \dontrun{
-#' # Basic usage - load maize yield data
+#' # Basic usage - load global maize yield data
 #' maize <- load_gaez_data(
 #'   crop = "maize",
 #'   time_period = "HP0120",
@@ -933,34 +962,57 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 #' )
 #' terra::plot(maize)
 #'
+#' # Load country-level data
+#' niger_maize <- load_gaez_data(
+#'   crop = "maize",
+#'   time_period = "HP0120",
+#'   country = "Niger"
+#' )
+#' terra::plot(niger_maize, main = "Niger Maize Yield")
+#'
+#' # Load with ISO3 code and delete global file
+#' niger_wheat <- load_gaez_data(
+#'   crop = "wheat",
+#'   country = "NER",
+#'   keep_global = FALSE
+#' )
+#'
 #' # Load with metadata
 #' result <- load_gaez_data(
 #'   crop = "wheat",
 #'   time_period = "FP4160",
 #'   ssp = "SSP370",
+#'   country = "Niger",
 #'   return_metadata = TRUE
 #' )
 #' terra::plot(result$raster)
 #' print(result$metadata$file_path)
 #' print(result$metadata$file_size)
 #'
-#' # Compare scenarios by loading multiple datasets
-#' ssp126 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP126")
-#' ssp370 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP370")
-#' ssp585 <- load_gaez_data(crop = "sorghum", time_period = "FP4160", ssp = "SSP585")
+#' # Compare scenarios for specific country
+#' ssp126 <- load_gaez_data(crop = "sorghum", time_period = "FP4160",
+#'                          ssp = "SSP126", country = "Niger")
+#' ssp370 <- load_gaez_data(crop = "sorghum", time_period = "FP4160",
+#'                          ssp = "SSP370", country = "Niger")
 #'
 #' # Calculate differences
 #' diff_370_126 <- ssp370 - ssp126
-#' terra::plot(diff_370_126, main = "Yield change: SSP370 vs SSP126")
+#' terra::plot(diff_370_126, main = "Niger: Yield change SSP370 vs SSP126")
 #'
-#' # If file already cached, loads instantly
-#' maize2 <- load_gaez_data(crop = "maize", time_period = "HP0120")  # No download!
+#' # Use custom boundary (e.g., administrative level 1)
+#' library(geodata)
+#' provinces <- gadm(country = "NER", level = 1)
+#' provincial_data <- load_gaez_data(
+#'   crop = "maize",
+#'   country = provinces
+#' )
 #' }
 #'
 #' @seealso
 #' \code{\link{download_gaez_dataset}} for download-only functionality,
 #' \code{\link{batch_download_gaez_datasets}} for downloading multiple files,
-#' \code{\link{combine_gaez_batch}} for combining multiple rasters
+#' \code{\link{combine_gaez_batch}} for combining multiple rasters,
+#' \code{\link{get_country_boundary}} for country boundary retrieval
 #'
 #' @export
 load_gaez_data <- function(variable = "RES05-YX",
@@ -977,6 +1029,9 @@ load_gaez_data <- function(variable = "RES05-YX",
                             overwrite = FALSE,
                             validate_inputs = TRUE,
                             verbose = TRUE,
+                            country = NULL,
+                            mask_to_boundary = TRUE,
+                            keep_global = TRUE,
                             return_metadata = FALSE) {
   # Check if terra is available
   if (!requireNamespace("terra", quietly = TRUE)) {
@@ -1015,6 +1070,8 @@ load_gaez_data <- function(variable = "RES05-YX",
   }
 
   # Load the raster
+  global_file_path <- download_result$file_path
+
   if (verbose) {
     if (download_result$already_exists) {
       cat("Loading cached file...\n")
@@ -1025,14 +1082,132 @@ load_gaez_data <- function(variable = "RES05-YX",
 
   tryCatch(
     {
-      raster <- terra::rast(download_result$file_path)
+      raster <- terra::rast(global_file_path)
 
-      if (verbose) {
+      if (verbose && is.null(country)) {
         cat("Loaded SpatRaster:\n")
         cat("  Dimensions:", terra::nrow(raster), "rows x", terra::ncol(raster), "cols\n")
         cat("  Layers:", terra::nlyr(raster), "\n")
         cat("  CRS:", as.character(terra::crs(raster)), "\n")
         cat("  Extent:", paste(as.vector(terra::ext(raster)), collapse = ", "), "\n")
+      }
+
+      # ====================
+      # COUNTRY CROPPING
+      # ====================
+      if (!is.null(country)) {
+        if (verbose) {
+          cat("\n=== Country Cropping ===\n")
+        }
+
+        # Get country boundary
+        boundary <- get_country_boundary(country, verbose = verbose)
+
+        # Extract ISO3 code for file naming
+        if (inherits(country, "SpatVector")) {
+          # Try to extract ISO3 from SpatVector attributes
+          if ("ISO3" %in% names(boundary)) {
+            country_iso3 <- boundary$ISO3[1]
+          } else if ("ISO" %in% names(boundary)) {
+            country_iso3 <- boundary$ISO[1]
+          } else {
+            country_iso3 <- "CUSTOM"
+          }
+        } else {
+          # Get ISO3 from geodata lookup
+          country_db <- geodata::country_codes()
+          iso3_match <- country_db[toupper(country_db$ISO3) == toupper(country), ]
+          if (nrow(iso3_match) == 1) {
+            country_iso3 <- iso3_match$ISO3[1]
+          } else {
+            name_matches <- country_db[grepl(country, country_db$NAME, ignore.case = TRUE), ]
+            if (nrow(name_matches) >= 1) {
+              exact_match <- name_matches[tolower(name_matches$NAME) == tolower(country), ]
+              if (nrow(exact_match) == 1) {
+                country_iso3 <- exact_match$ISO3[1]
+              } else {
+                country_iso3 <- name_matches$ISO3[1]
+              }
+            } else {
+              country_iso3 <- "UNKNOWN"
+            }
+          }
+        }
+
+        # Check if cropped file already exists
+        base_name <- tools::file_path_sans_ext(basename(global_file_path))
+        ext_name <- tools::file_ext(global_file_path)
+        cropped_filename <- paste0(base_name, "_", country_iso3, ".", ext_name)
+        cropped_file_path <- file.path(dirname(global_file_path), cropped_filename)
+
+        # Check if cropped version exists and is newer than global
+        if (file.exists(cropped_file_path) && !overwrite) {
+          if (verbose) {
+            cat("  Found existing cropped file, loading...\n")
+          }
+          raster <- terra::rast(cropped_file_path)
+          download_result$file_path <- cropped_file_path
+        } else {
+          # Reproject boundary if CRS doesn't match
+          if (!terra::same.crs(boundary, raster)) {
+            if (verbose) {
+              cat("  Reprojecting boundary to match raster CRS...\n")
+            }
+            boundary <- terra::project(boundary, terra::crs(raster))
+          }
+
+          # Crop to country extent
+          if (verbose) {
+            cat("  Cropping to country extent...\n")
+          }
+          raster_cropped <- terra::crop(raster, boundary)
+
+          # Optionally mask to boundary
+          if (mask_to_boundary) {
+            if (verbose) {
+              cat("  Masking to country boundary...\n")
+            }
+            raster <- terra::mask(raster_cropped, boundary)
+          } else {
+            raster <- raster_cropped
+          }
+
+          # Check if result has any data
+          if (all(is.na(terra::values(raster, mat = FALSE)))) {
+            warning(
+              "All values are NA after cropping to country boundary. ",
+              "The country may not overlap with the raster extent."
+            )
+          }
+
+          # Save cropped raster
+          if (verbose) {
+            cat("  Saving cropped raster:", cropped_filename, "\n")
+          }
+          terra::writeRaster(raster, cropped_file_path, overwrite = TRUE)
+
+          # Update download result metadata
+          download_result$file_path <- cropped_file_path
+          download_result$file_size <- file.size(cropped_file_path)
+
+          # Delete global file if requested
+          if (!keep_global && file.exists(global_file_path)) {
+            if (verbose) {
+              cat("  Deleting global file (keep_global = FALSE)...\n")
+            }
+            file.remove(global_file_path)
+          }
+        }
+
+        if (verbose) {
+          cat("\nLoaded Country-Cropped SpatRaster:\n")
+          cat("  Country:", country_iso3, "\n")
+          cat("  Dimensions:", terra::nrow(raster), "rows x", terra::ncol(raster), "cols\n")
+          cat("  Layers:", terra::nlyr(raster), "\n")
+          cat("  CRS:", as.character(terra::crs(raster)), "\n")
+          cat("  Extent:", paste(as.vector(terra::ext(raster)), collapse = ", "), "\n")
+          cat("  File:", cropped_file_path, "\n")
+        }
       }
 
       # Return based on return_metadata flag
@@ -1048,7 +1223,7 @@ load_gaez_data <- function(variable = "RES05-YX",
     error = function(e) {
       stop(
         "Failed to load raster from file: ",
-        download_result$file_path,
+        global_file_path,
         "\nError: ", e$message,
         call. = FALSE
       )
