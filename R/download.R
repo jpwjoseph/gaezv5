@@ -406,24 +406,39 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #'
 #' @examples
 #' \dontrun{
-#' # Download multiple crops for same scenario
+#' # Download attainable yield for multiple crops in historical period
 #' results <- batch_download_gaez_datasets(
+#'   variables = "RES05-YX",  # Attainable yield
 #'   crops = c("maize", "wheat", "sorghum"),
 #'   time_period = "HP0120",
 #'   climate_model = "AGERA5"
 #' )
 #'
-#' # Download same crop under different scenarios
+#' # Download same crop under different future scenarios
 #' results <- batch_download_gaez_datasets(
+#'   variables = "RES05-YX",  # Attainable yield
 #'   crops = "maize",
 #'   ssps = c("SSP126", "SSP370", "SSP585"),
-#'   time_period = "FP4160"
+#'   time_period = "FP4160",
+#'   climate_model = "ENSEMBLE"
 #' )
 #'
-#' # Download both rain-fed and irrigated
+#' # Compare rain-fed vs irrigated for rice
 #' results <- batch_download_gaez_datasets(
+#'   variables = "RES05-YX",  # Attainable yield
 #'   crops = "rice",
-#'   water_management_levels = c("HRLM", "HILM")
+#'   water_management_levels = c("HRLM", "HILM"),  # Rain-fed vs Irrigated
+#'   time_period = "HP0120",
+#'   climate_model = "AGERA5"
+#' )
+#'
+#' # Download multiple variables for same crop
+#' results <- batch_download_gaez_datasets(
+#'   variables = c("RES05-YX", "RES05-SI"),  # Yield and suitability
+#'   crops = "wheat",
+#'   time_period = "FP4160",
+#'   climate_model = "ENSEMBLE",
+#'   ssp = "SSP370"
 #' )
 #'
 #' # Check success rate
