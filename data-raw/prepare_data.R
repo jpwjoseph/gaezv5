@@ -919,10 +919,6 @@ gaez_variables <- tribble(
   "RES07-QGA"
 )
 
-# Save as package data
-usethis::use_data(gaez_variables, overwrite = TRUE, compress = "xz")
-message("✓ gaez_variables saved")
-
 # ==============================================================================
 # GAEZ v5 Crop Codes (Modules II-VI combined)
 # ==============================================================================
@@ -1191,10 +1187,6 @@ gaez_crops <- bind_rows(
   gaez_crops_m6_t6
 )
 
-# Save as package data
-usethis::use_data(gaez_crops, overwrite = TRUE, compress = "xz")
-message("✓ gaez_crops saved")
-
 # ==============================================================================
 # GAEZ v5 Scenarios (Time periods, Climate models, SSPs, Water management)
 # ==============================================================================
@@ -1239,10 +1231,6 @@ gaez_scenarios <- tribble(
     "WST", "Water supply - Total"
   ))
 
-# Save as package data
-usethis::use_data(gaez_scenarios, overwrite = TRUE, compress = "xz")
-message("✓ gaez_scenarios saved")
-
 # ==============================================================================
 # GAEZ v5 URL Structure
 # ==============================================================================
@@ -1265,8 +1253,20 @@ gaez_url_structure <- tribble(
   9, list(c("variable_code", "year"))
 )
 
-# Save as package data
-usethis::use_data(gaez_url_structure, overwrite = TRUE, compress = "xz")
-message("✓ gaez_url_structure saved")
+# ==============================================================================
+# Save all data objects as INTERNAL package data (R/sysdata.rda)
+# ==============================================================================
+# This makes the data available to package functions but not directly exported
+# to users. Users can still access via helper functions.
 
-message("\n=== All data objects prepared successfully ===")
+usethis::use_data(
+  gaez_variables,
+  gaez_crops,
+  gaez_scenarios,
+  gaez_url_structure,
+  internal = TRUE,
+  overwrite = TRUE,
+  compress = "xz"
+)
+
+message("\n=== All data objects saved to R/sysdata.rda ===")

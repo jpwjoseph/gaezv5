@@ -7,3 +7,7 @@ inst/doc
 doc
 Meta
 .claude
+# Ignore downloaded GAEZ data files (but not data/ folder structure)
+data/*.tif
+data/*.zip
+data/GAEZ/

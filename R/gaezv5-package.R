@@ -20,12 +20,11 @@
 #'   \item \code{\link{check_url_exists}}: Validate URLs before download
 #' }
 #'
-#' @section Data objects:
+#' @section Data access functions:
 #' \itemize{
-#'   \item \code{\link{gaez_variables}}: Table of all GAEZ variables
-#'   \item \code{\link{gaez_crops}}: Table of all crop codes
-#'   \item \code{\link{gaez_scenarios}}: Time periods, climate models, SSPs
-#'   \item \code{\link{gaez_url_structure}}: URL construction patterns
+#'   \item \code{\link{get_gaez_variables}}: Get table of all GAEZ variables
+#'   \item \code{\link{get_gaez_crops}}: Get table of all crop codes
+#'   \item \code{\link{get_gaez_scenarios}}: Get time periods, climate models, SSPs
 #' }
 #'
 #' @section Getting started:
@@ -85,78 +84,3 @@ NULL
 ## usethis namespace: start
 ## usethis namespace: end
 NULL
-
-#' GAEZ v5 Variables
-#'
-#' A dataset containing information about all GAEZ v5 variables across
-#' 6 themes. Use this to discover available data types and their codes.
-#'
-#' @format A tibble with 133 rows and 7 columns:
-#' \describe{
-#'   \item{theme_number}{Theme number (1-6)}
-#'   \item{theme_name}{Descriptive theme name}
-#'   \item{sub_theme_name}{Sub-theme classification}
-#'   \item{variable_code}{Variable code (e.g., "RES05-YX")}
-#'   \item{variable_name}{Full descriptive name}
-#'   \item{data_folder}{Storage folder ("MAP" or "MAPSET")}
-#'   \item{data_code}{Data code used in file naming}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Browse variables
-#' View(gaez_variables)
-#'
-#' # Find yield-related variables
-#' subset(gaez_variables, grepl("yield", variable_name, ignore.case = TRUE))
-#' }
-"gaez_variables"
-
-
-#' GAEZ v5 Crop Codes
-#'
-#' A dataset containing crop codes for all GAEZ v5 themes. Different themes
-#' use different coding systems (3-letter vs 4-letter codes).
-#'
-#' @format A tibble with crop information:
-#' \describe{
-#'   \item{gaez_crop_code}{Crop code (e.g., "MZE", "MAIZ")}
-#'   \item{name}{Full crop name}
-#'   \item{gaez_crop_group}{Crop group classification}
-#'   \item{gaez_theme}{Theme number (3-6)}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Browse crops
-#' View(gaez_crops)
-#'
-#' # Filter to theme 4 cereals
-#' subset(gaez_crops, gaez_theme == 4 & gaez_crop_group == "Cereals")
-#' }
-"gaez_crops"
-
-
-#' GAEZ v5 Scenarios
-#'
-#' Reference data for time periods, climate models, SSP scenarios, and
-#' water management codes used in GAEZ v5.
-#'
-#' @format A tibble with multiple types of scenario information
-#'
-#' @examples
-#' \dontrun{
-#' View(gaez_scenarios)
-#' }
-"gaez_scenarios"
-
-
-#' GAEZ v5 URL Structure
-#'
-#' Internal reference data describing how URLs are constructed for different
-#' GAEZ themes.
-#'
-#' @format A tibble mapping themes to URL components
-#'
-#' @keywords internal
-"gaez_url_structure"

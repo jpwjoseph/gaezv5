@@ -27,13 +27,12 @@ estimates, and agro-climatic resources.
 }
 }
 
-\section{Data objects}{
+\section{Data access functions}{
 
 \itemize{
-\item \code{\link{gaez_variables}}: Table of all GAEZ variables
-\item \code{\link{gaez_crops}}: Table of all crop codes
-\item \code{\link{gaez_scenarios}}: Time periods, climate models, SSPs
-\item \code{\link{gaez_url_structure}}: URL construction patterns
+\item \code{\link{get_gaez_variables}}: Get table of all GAEZ variables
+\item \code{\link{get_gaez_crops}}: Get table of all crop codes
+\item \code{\link{get_gaez_scenarios}}: Get time periods, climate models, SSPs
 }
 }
 
