@@ -53,7 +53,6 @@
 #'   \item The specified download_dir
 #'   \item Data/GAEZ/
 #'   \item GAEZ/ (in working directory)
-#'   \item Data/GAEZ_Niger_Analysis/ (legacy location)
 #' }
 #'
 #' @examples
@@ -115,17 +114,6 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   )
 
   if (verbose) {
-    cat("=== GAEZ v5 Dataset Download ===\n")
-    cat("Variable:", variable, "\n")
-    cat("Crop:", crop, "\n")
-    cat("Time period:", time_period, "\n")
-  }
-
-  # ====================
-  # 1. BUILD URL
-  # ====================
-
-  if (verbose) {
     cat("\n[1/5] Building download URL...\n")
   }
 
@@ -177,7 +165,6 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 
   if (verbose) {
     cat("\u2713 URL built successfully\n")
-    cat("   URL:", result$url, "\n")
   }
 
   # ====================
@@ -218,8 +205,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   result$file_path <- file_path
 
   if (verbose) {
-    cat("   Download directory:", download_dir, "\n")
-    cat("   Filename:", filename, "\n")
+    cat("\u2713 Download paths configured\n")
   }
 
   # ====================
@@ -254,15 +240,13 @@ download_gaez_dataset <- function(variable = "RES05-YX",
     result$message <- "File already exists (use overwrite=TRUE to re-download)"
 
     if (verbose) {
-      cat("\u2713 File already exists:\n")
-      cat("   Path:", existing_file, "\n")
-      cat("   Size:", round(result$file_size / 1024^2, 2), "MB\n")
+      cat("\u2713 File already exists (skipping download)\n")
     }
     return(result)
   } else if (!is.null(existing_file) && overwrite) {
-    if (verbose) cat("   Existing file found, will overwrite\n")
+    if (verbose) cat("\u2713 Existing file found, will overwrite\n")
   } else {
-    if (verbose) cat("   No existing file found\n")
+    if (verbose) cat("\u2713 No existing file found\n")
   }
 
   # ====================
@@ -297,17 +281,10 @@ download_gaez_dataset <- function(variable = "RES05-YX",
       content_length <- headers(response)$`content-length`
       if (!is.null(content_length)) {
         expected_size <- as.numeric(content_length)
-        if (verbose) {
-          cat(
-            "   Expected file size:",
-            round(expected_size / 1024^2, 2),
-            "MB\n"
-          )
-        }
       }
     },
     error = function(e) {
-      if (verbose) cat("   Warning: Could not check file availability\n")
+      # Silently continue if URL check fails
     }
   )
 
@@ -335,8 +312,6 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 
         if (verbose) {
           cat("\u2713 Download completed successfully\n")
-          cat("   File size:", round(result$file_size / 1024^2, 2), "MB\n")
-          cat("   Download time:", round(result$download_time, 1), "seconds\n")
         }
       } else {
         result$message <- "Download failed (unknown error)"
@@ -363,15 +338,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
       # Check if it's a valid raster file (basic check)
       file_ext <- tools::file_ext(filename)
       if (tolower(file_ext) == "tif") {
-        if (verbose) cat("\u2713 File appears to be a valid GeoTIFF\n")
-      }
-
-      if (verbose) {
-        cat("\n=== Download Summary ===\n")
-        cat("Status: SUCCESS\n")
-        cat("File:", result$file_path, "\n")
-        cat("Size:", round(result$file_size / 1024^2, 2), "MB\n")
-        cat("URL:", result$url, "\n")
+        if (verbose) cat("\u2713 File validation complete\n")
       }
     } else {
       result$success <- FALSE
@@ -772,18 +739,13 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
     ))
   }
 
-  cat("=== Batch Download ===\n")
-  cat("Total valid combinations:", nrow(combinations), "\n")
+  # Extract verbose setting from dots
+  verbose_mode <- if (!is.null(dots$verbose)) dots$verbose else TRUE
 
-  # Show breakdown by time period
-  if (length(unique(combinations$time_period)) > 1) {
-    cat("\nTime periods:\n")
-    for (tp in unique(combinations$time_period)) {
-      n <- sum(combinations$time_period == tp)
-      cat("  ", tp, ":", n, "downloads\n")
-    }
+  if (verbose_mode) {
+    cat("=== Batch Download ===\n")
+    cat("Total combinations:", nrow(combinations), "\n\n")
   }
-  cat("\n")
 
   results <- list()
 
@@ -791,12 +753,13 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
   # PARALLEL DOWNLOAD MODE
   # ====================
   if (parallel) {
-    cat("Using parallel downloads (curl::multi_download)\n")
+    if (verbose_mode) {
+      cat("Using parallel downloads\n")
+    }
 
     # Extract download_dir and overwrite from dots
     download_dir <- if (!is.null(dots$download_dir)) dots$download_dir else NULL
     overwrite <- if (!is.null(dots$overwrite)) dots$overwrite else FALSE
-    verbose_mode <- if (!is.null(dots$verbose)) dots$verbose else TRUE
 
     # Build all URLs and destination paths upfront
     urls <- vector("character", nrow(combinations))
@@ -889,24 +852,28 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
       }
     }
 
-    if (length(already_exist) > 0) {
+    if (length(already_exist) > 0 && verbose_mode) {
       cat(length(already_exist), "file(s) already exist (skipping)\n")
     }
 
     # Perform parallel downloads using curl::multi_download
     if (length(files_to_download) > 0) {
-      cat("\nDownloading", length(files_to_download), "file(s) in parallel...\n")
+      if (verbose_mode) {
+        cat("Downloading", length(files_to_download), "file(s)...\n")
+      }
 
       download_start <- Sys.time()
       download_results <- multi_download(
         urls = urls[files_to_download],
         destfiles = destfiles[files_to_download],
         resume = TRUE,
-        progress = TRUE
+        progress = verbose_mode
       )
       download_end <- Sys.time()
 
-      cat("Total download time:", round(as.numeric(download_end - download_start, units = "secs"), 1), "seconds\n\n")
+      if (verbose_mode) {
+        cat("Download completed in", round(as.numeric(download_end - download_start, units = "secs"), 1), "seconds\n\n")
+      }
     } else {
       download_results <- data.frame()
     }
@@ -971,10 +938,14 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
     # ====================
     # SEQUENTIAL DOWNLOAD MODE
     # ====================
-    cat("Using sequential downloads\n\n")
+    if (verbose_mode) {
+      cat("Using sequential downloads\n\n")
+    }
 
     for (i in seq_len(nrow(combinations))) {
-      cat("Download", i, "of", nrow(combinations), "\n")
+      if (verbose_mode) {
+        cat("[", i, "/", nrow(combinations), "] ", sep = "")
+      }
 
       # Build argument list with cleaned dots
       args <- c(
@@ -1004,21 +975,23 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
         sep = "_"
       )
 
-      cat("\n")
+      if (verbose_mode) {
+        cat("\n")
+      }
     }
   }
 
   # Summary
   successes <- sum(sapply(results, function(x) x$success))
-  cat("=== Batch Summary ===\n")
-  cat("Successful downloads:", successes, "/", length(results), "\n")
 
-  # Show failures if any
-  failures <- which(!sapply(results, function(x) x$success))
-  if (length(failures) > 0) {
-    cat("\nFailed downloads:\n")
-    for (idx in failures) {
-      cat("  ", names(results)[idx], "\n")
+  if (verbose_mode) {
+    cat("\n=== Summary ===\n")
+    cat("Successful:", successes, "/", length(results), "\n")
+
+    # Show failures if any
+    failures <- which(!sapply(results, function(x) x$success))
+    if (length(failures) > 0) {
+      cat("Failed:", length(failures), "\n")
     }
   }
 
@@ -1218,11 +1191,7 @@ load_gaez_data <- function(variable = "RES05-YX",
   global_file_path <- download_result$file_path
 
   if (verbose) {
-    if (download_result$already_exists) {
-      cat("Loading cached file...\n")
-    } else {
-      cat("Loading newly downloaded file...\n")
-    }
+    cat("\nLoading raster data...\n")
   }
 
   tryCatch(
@@ -1230,11 +1199,7 @@ load_gaez_data <- function(variable = "RES05-YX",
       raster <- terra::rast(global_file_path)
 
       if (verbose && is.null(country)) {
-        cat("Loaded SpatRaster:\n")
-        cat("  Dimensions:", terra::nrow(raster), "rows x", terra::ncol(raster), "cols\n")
-        cat("  Layers:", terra::nlyr(raster), "\n")
-        cat("  CRS:", as.character(terra::crs(raster)), "\n")
-        cat("  Extent:", paste(as.vector(terra::ext(raster)), collapse = ", "), "\n")
+        cat("\u2713 Raster loaded successfully\n")
       }
 
       # ====================
@@ -1242,11 +1207,11 @@ load_gaez_data <- function(variable = "RES05-YX",
       # ====================
       if (!is.null(country)) {
         if (verbose) {
-          cat("\n=== Country Cropping ===\n")
+          cat("Cropping to country...\n")
         }
 
         # Get country boundary
-        boundary <- get_country_boundary(country, verbose = verbose)
+        boundary <- get_country_boundary(country, verbose = FALSE)
 
         # Extract ISO3 code for file naming
         if (inherits(country, "SpatVector")) {
@@ -1287,31 +1252,19 @@ load_gaez_data <- function(variable = "RES05-YX",
 
         # Check if cropped version exists and is newer than global
         if (file.exists(cropped_file_path) && !overwrite) {
-          if (verbose) {
-            cat("  Found existing cropped file, loading...\n")
-          }
           raster <- terra::rast(cropped_file_path)
           download_result$file_path <- cropped_file_path
         } else {
           # Reproject boundary if CRS doesn't match
           if (!terra::same.crs(boundary, raster)) {
-            if (verbose) {
-              cat("  Reprojecting boundary to match raster CRS...\n")
-            }
             boundary <- terra::project(boundary, terra::crs(raster))
           }
 
           # Crop to country extent
-          if (verbose) {
-            cat("  Cropping to country extent...\n")
-          }
           raster_cropped <- terra::crop(raster, boundary)
 
           # Optionally mask to boundary
           if (mask_to_boundary) {
-            if (verbose) {
-              cat("  Masking to country boundary...\n")
-            }
             raster <- terra::mask(raster_cropped, boundary)
           } else {
             raster <- raster_cropped
@@ -1326,9 +1279,6 @@ load_gaez_data <- function(variable = "RES05-YX",
           }
 
           # Save cropped raster
-          if (verbose) {
-            cat("  Saving cropped raster:", cropped_filename, "\n")
-          }
           terra::writeRaster(raster, cropped_file_path, overwrite = TRUE)
 
           # Update download result metadata
@@ -1337,21 +1287,12 @@ load_gaez_data <- function(variable = "RES05-YX",
 
           # Delete global file if requested
           if (!keep_global && file.exists(global_file_path)) {
-            if (verbose) {
-              cat("  Deleting global file (keep_global = FALSE)...\n")
-            }
             file.remove(global_file_path)
           }
         }
 
         if (verbose) {
-          cat("\nLoaded Country-Cropped SpatRaster:\n")
-          cat("  Country:", country_iso3, "\n")
-          cat("  Dimensions:", terra::nrow(raster), "rows x", terra::ncol(raster), "cols\n")
-          cat("  Layers:", terra::nlyr(raster), "\n")
-          cat("  CRS:", as.character(terra::crs(raster)), "\n")
-          cat("  Extent:", paste(as.vector(terra::ext(raster)), collapse = ", "), "\n")
-          cat("  File:", cropped_file_path, "\n")
+          cat("\u2713 Country crop complete\n")
         }
       }
 
