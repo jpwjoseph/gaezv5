@@ -1,0 +1,12 @@
+## By default, R package vignettes ignore .md files to prevent
+## pre-rendered vignettes from being committed. However, we WANT
+## to commit the .md files so they display on GitHub.
+##
+## This file negates the default .gitignore behavior for vignettes.
+
+# Don't ignore .md files (track them!)
+!*.md
+!*.knit.md
+
+# Don't ignore figure directories
+!*_files/

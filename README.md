@@ -27,6 +27,8 @@ devtools::install_github("jpwjoseph/gaezv5")
 
 ## Quick Start
 
+Consult the vignette for a comprehensive tutorial: [**Getting Started Vignette**](vignettes/getting-started.Rmd)
+
 ### Simplest Workflow: Load Data Directly
 
 ``` r
