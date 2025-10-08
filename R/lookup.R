@@ -33,7 +33,7 @@
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter mutate select
+#' @importFrom dplyr filter mutate select n
 #' @importFrom stringr str_detect str_to_lower
 lookup_gaez_variable <- function(user_input) {
   if (missing(user_input) || is.null(user_input) || user_input == "") {
@@ -154,7 +154,7 @@ lookup_gaez_variable <- function(user_input) {
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter mutate select n
 #' @importFrom stringr str_to_upper str_to_lower str_detect
 lookup_gaez_crop <- function(crop_name, theme = 4) {
   if (missing(crop_name) || is.null(crop_name) || crop_name == "") {

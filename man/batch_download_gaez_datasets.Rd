@@ -6,8 +6,8 @@
 \usage{
 batch_download_gaez_datasets(
   variables = "RES05-YX",
-  crops = "WHEA",
-  time_periods = NULL,
+  crops = "MZE",
+  time_periods = "HP0120",
   ssps = NULL,
   climate_models = NULL,
   water_management_levels = "HRLM",

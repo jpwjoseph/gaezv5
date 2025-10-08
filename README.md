@@ -1,18 +1,13 @@
 # gaezv5: Download and Process GAEZ v5 Data
 
-<!-- badges: start -->
-
-[![R-CMD-check](https://github.com/jpwjoseph/gaezv5/workflows/R-CMD-check/badge.svg)](https://github.com/jpwjoseph/gaezv5/actions) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-<!-- badges: end -->
-
 An R package for downloading, processing, and analyzing Global Agro-Ecological Zones (GAEZ) version 5 data from the Food and Agriculture Organization (FAO) and the International Institute for Applied Systems Analysis (IIASA). GAEZ v5 provides comprehensive global data on agricultural potential, crop suitability, attainable yields, and agro-climatic resources.
 
 ## Features
 
 ### Core Functionality
+
 -   🚀 **Simple Data Loading**: One-function workflow with `load_gaez_data()`
--   🌍 **Country-Level Cropping**: Automatic spatial subsetting to country boundaries (NEW in v0.1.2)
+-   🌍 **Country-Level Cropping**: Automatic spatial subsetting to country boundaries
 -   📦 **Batch Processing**: Download and combine multiple datasets efficiently
 -   💾 **NetCDF Export**: Efficient multi-layer data storage
 -   ⚡ **Parallel Downloads**: 3-6x faster batch downloads
@@ -47,7 +42,7 @@ maize <- load_gaez_data(
 plot(maize, main = "Global Maize Yield (2001-2020)")
 ```
 
-### Load Country-Level Data 
+### Load Country-Level Data
 
 Reduce file sizes by 90-99% with automatic country cropping:
 
@@ -206,22 +201,25 @@ GAEZ v5 data is organized into 6 themes:
 ## Documentation
 
 ### Getting Started
-- 📖 **[Getting Started Vignette](vignettes/getting-started.Rmd)** - Comprehensive tutorial with all features
-- 🚀 **[Quick Start Guide](QUICK_START_COUNTRY_CROPPING.md)** - Country cropping quick reference
-- 📋 **[Package Summary](PACKAGE_SUMMARY.md)** - Overview of all functions
+
+-   📖 [**Getting Started Vignette**](vignettes/getting-started.Rmd) - Comprehensive tutorial with all features
+-   🚀 [**Quick Start Guide**](QUICK_START_COUNTRY_CROPPING.md) - Country cropping quick reference
+-   📋 [**Package Summary**](PACKAGE_SUMMARY.md) - Overview of all functions
 
 ### Advanced Features
-- 🌍 **[Country Cropping Guide](COUNTRY_CROPPING_SUMMARY.md)** - Detailed country-level analysis documentation
-- 💡 **[Examples](examples/)** - Demonstration scripts
-  - [Country Cropping Demo](examples/country_cropping_demo.R)
+
+-   🌍 [**Country Cropping Guide**](COUNTRY_CROPPING_SUMMARY.md) - Detailed country-level analysis documentation
+-   💡 [**Examples**](examples/) - Demonstration scripts
+    -   [Country Cropping Demo](examples/country_cropping_demo.R)
 
 ### Reference
-- 📰 **[NEWS](NEWS.md)** - Changelog and version history
-- ❓ **[Function Help](man/)** - Detailed function documentation
+
+-   📰 [**NEWS**](NEWS.md) - Changelog and version history
+-   ❓ [**Function Help**](man/) - Detailed function documentation
 
 ### Quick Reference
 
-```r
+``` r
 # View all examples
 show_gaez_examples()
 
@@ -240,14 +238,11 @@ help(package = "gaezv5")
 
 Automatically crop GAEZ data to country boundaries:
 
-**Benefits:**
-- 90-99% file size reduction
-- Faster loading and processing
-- Regional focus without manual cropping
-- Optional deletion of global files to save disk space
+**Benefits:** - 90-99% file size reduction - Faster loading and processing - Regional focus without manual cropping - Optional deletion of global files to save disk space
 
 **Usage:**
-```r
+
+``` r
 # By country name
 data <- load_gaez_data(crop = "MZE", country = "Niger")
 
@@ -266,14 +261,11 @@ data <- load_gaez_data(crop = "MZE", country = boundary)
 
 Efficiently download and combine multiple datasets:
 
-**Features:**
-- Parallel downloads (3-6x faster)
-- Automatic validation of time period/SSP combinations
-- Multi-layer raster creation
-- NetCDF export with compression
+**Features:** - Parallel downloads (3-6x faster) - Automatic validation of time period/SSP combinations - Multi-layer raster creation - NetCDF export with compression
 
 **Usage:**
-```r
+
+``` r
 # Download multiple files
 results <- batch_download_gaez_datasets(
   crops = c("MZE", "WHE", "SOR"),
@@ -293,7 +285,7 @@ combined <- combine_gaez_batch(
 
 All functions automatically check for existing downloads:
 
-```r
+``` r
 # First call: downloads file
 data1 <- load_gaez_data(crop = "MZE", time_period = "HP0120")
 
@@ -304,7 +296,8 @@ data2 <- load_gaez_data(crop = "MZE", time_period = "HP0120")
 ## Best Practices
 
 ### 1. Use Country Cropping for Regional Studies
-```r
+
+``` r
 # ✓ GOOD: Direct country download (small, fast)
 niger <- load_gaez_data(crop = "MZE", country = "Niger")
 
@@ -314,7 +307,8 @@ niger <- crop(global, niger_boundary)
 ```
 
 ### 2. Use ISO3 Codes to Avoid Ambiguity
-```r
+
+``` r
 # ✓ GOOD: Unambiguous
 data <- load_gaez_data(crop = "MZE", country = "NER")
 
@@ -323,7 +317,8 @@ data <- load_gaez_data(crop = "MZE", country = "niger")
 ```
 
 ### 3. Export to NetCDF for Multi-Layer Data
-```r
+
+``` r
 # More efficient storage than multiple GeoTIFFs
 combined <- combine_gaez_batch(
   results,
@@ -333,7 +328,8 @@ combined <- combine_gaez_batch(
 ```
 
 ### 4. Clean Up Global Files When Using Country Data
-```r
+
+``` r
 # Save disk space
 data <- load_gaez_data(
   crop = "MZE",
@@ -346,9 +342,9 @@ data <- load_gaez_data(
 
 All data is sourced from the FAO GAEZ v5 Data Portal:
 
-- **Portal**: https://gaez.fao.org/
-- **Model Documentation**: https://github.com/un-fao/gaezv5/wiki
-- **Google Cloud Storage**: https://storage.googleapis.com/fao-gismgr-gaez-v5-data/
+-   **Portal**: https://gaez.fao.org/
+-   **Model Documentation**: https://github.com/un-fao/gaezv5/wiki
+-   **Google Cloud Storage**: https://storage.googleapis.com/fao-gismgr-gaez-v5-data/
 
 ## Citation
 
@@ -366,42 +362,39 @@ citation("gaezv5")
 
 Contributions are welcome! Please feel free to submit a Pull Request or open an issue.
 
-- **Issues**: https://github.com/jpwjoseph/gaezv5/issues
-- **Pull Requests**: https://github.com/jpwjoseph/gaezv5/pulls
+-   **Issues**: https://github.com/jpwjoseph/gaezv5/issues
+-   **Pull Requests**: https://github.com/jpwjoseph/gaezv5/pulls
 
 ## Version History
 
 ### v0.1.2 (Development) - Country Cropping Release
-- ⭐ NEW: `load_gaez_data()` - One-function download + load workflow
-- ⭐ NEW: `combine_gaez_batch()` - Multi-layer raster combination
-- ⭐ NEW: `get_country_boundary()` - Country boundary retrieval
-- ⭐ NEW: Country-level cropping in both load and batch functions
-- 📦 Added `geodata` dependency for GADM boundaries
-- 📊 NetCDF export support with compression
+
+-   ⭐ NEW: `load_gaez_data()` - One-function download + load workflow
+-   ⭐ NEW: `combine_gaez_batch()` - Multi-layer raster combination
+-   ⭐ NEW: `get_country_boundary()` - Country boundary retrieval
+-   ⭐ NEW: Country-level cropping in both load and batch functions
+-   📦 Added `geodata` dependency for GADM boundaries
+-   📊 NetCDF export support with compression
 
 ### v0.1.1 - Parallel Downloads & Time Series
-- ⚡ Parallel downloads via `curl::multi_download()`
-- 📅 Multiple time period support in batch operations
-- 🔧 Enhanced parameter handling (accepts lists or vectors)
-- 🐛 Bug fixes for batch operations
+
+-   ⚡ Parallel downloads via `curl::multi_download()`
+-   📅 Multiple time period support in batch operations
+-   🔧 Enhanced parameter handling (accepts lists or vectors)
+-   🐛 Bug fixes for batch operations
 
 ### v0.1.0 - Initial Release
-- 📥 Basic download functionality
-- 🔍 Data discovery functions
-- 📁 File management utilities
-- ✅ Comprehensive validation
+
+-   📥 Basic download functionality
+-   🔍 Data discovery functions
+-   📁 File management utilities
+-   ✅ Comprehensive validation
 
 See [NEWS.md](NEWS.md) for complete changelog.
 
-## License
-
-GPL (>= 3)
-
 ## Author
 
-**Julian Joseph** (IIASA)
-Email: joseph@iiasa.ac.at
-ORCID: [0000-0002-3844-7807](https://orcid.org/0000-0002-3844-7807)
+**Julian Joseph** (IIASA) Email: joseph\@iiasa.ac.at ORCID: [0000-0002-3844-7807](https://orcid.org/0000-0002-3844-7807)
 
 ## Acknowledgments
 
@@ -416,6 +409,6 @@ ORCID: [0000-0002-3844-7807](https://orcid.org/0000-0002-3844-7807)
 -   [terra](https://rspatial.org/terra/) - Spatial data handling in R
 -   [geodata](https://github.com/rspatial/geodata) - Geographic data access
 
----
+------------------------------------------------------------------------
 
-**Status**: Active Development | **Version**: 0.1.2 | **Last Updated**: 2025-10-07
+**Status**: Active Development \| **Version**: 0.1.2 \| **Last Updated**: 2025-10-07
