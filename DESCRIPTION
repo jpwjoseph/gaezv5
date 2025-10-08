@@ -19,7 +19,6 @@ Description: Tools for downloading and working with Global Agro-Ecological Zones
     support, and flexible parameter handling for climate change impact studies.
 License: GPL (>= 3)
 Encoding: UTF-8
-LazyData: true
 URL: https://github.com/jpwjoseph/gaezv5
 BugReports: https://github.com/jpwjoseph/gaezv5/issues
 Depends:
