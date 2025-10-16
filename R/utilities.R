@@ -4,6 +4,10 @@
 #' use different crop coding systems, so specify the appropriate theme for your
 #' analysis. Optionally filter by crop group (e.g., cereals, oil crops).
 #'
+#' If no crops match the specified \code{crop_group}, the function will display
+#' all available crop groups for the selected theme and return \code{NULL}
+#' invisibly, prompting you to resubmit with a valid crop group.
+#'
 #' @param crop_group Character - Filter by crop group name (optional).
 #'   Case-insensitive partial matching. Examples: "cereal", "oil", "pulse",
 #'   "fodder", "bioenergy".
@@ -15,7 +19,7 @@
 #'     \item Theme 6: Yield & production gaps (3-letter codes)
 #'   }
 #'
-#' @return A tibble with columns:
+#' @return A tibble with columns (or \code{NULL} if no match found):
 #'   \itemize{
 #'     \item \code{gaez_crop_code}: The crop code used in GAEZ URLs
 #'     \item \code{name}: Full crop name
@@ -36,10 +40,14 @@
 #'
 #' # List crops for theme 3 (4-letter codes)
 #' list_gaez_crops(theme = 3)
+#'
+#' # If no match found, available groups are displayed
+#' list_gaez_crops(crop_group = "invalid_group")
+#' # Returns NULL and shows: "Available crop groups for theme 4: ..."
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter pull
 #' @importFrom stringr str_detect str_to_lower
 list_gaez_crops <- function(crop_group = NULL, theme = 4) {
   # Validate theme
@@ -53,8 +61,38 @@ list_gaez_crops <- function(crop_group = NULL, theme = 4) {
 
   # Filter by crop group if specified
   if (!is.null(crop_group)) {
-    crops <- crops |>
+    crops_filtered <- crops |>
       filter(str_detect(str_to_lower(gaez_crop_group), str_to_lower(crop_group)))
+
+    # Check if no match was found
+    if (nrow(crops_filtered) == 0) {
+      # Get available crop groups for this theme
+      available_groups <- crops |>
+        filter(!is.na(gaez_crop_group)) |>
+        pull(gaez_crop_group) |>
+        unique() |>
+        sort()
+
+      # Create informative message
+      if (length(available_groups) > 0) {
+        message(
+          "No crops found matching crop_group '", crop_group, "' in theme ", theme, ".\n\n",
+          "Available crop groups for theme ", theme, ":\n  ",
+          paste(available_groups, collapse = "\n  "),
+          "\n\nPlease resubmit your query with one of the available crop groups."
+        )
+      } else {
+        message(
+          "No crops found matching crop_group '", crop_group, "' in theme ", theme, ".\n\n",
+          "Note: Theme ", theme, " does not use crop groups. ",
+          "Consider listing all crops with: list_gaez_crops(theme = ", theme, ")"
+        )
+      }
+
+      return(invisible(NULL))
+    }
+
+    crops <- crops_filtered
   }
 
   return(crops)

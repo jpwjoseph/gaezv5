@@ -20,6 +20,31 @@ test_that("list_gaez_crops validates theme", {
   expect_error(list_gaez_crops(theme = 7), "Theme must be")
 })
 
+test_that("list_gaez_crops returns NULL and lists available groups when no match found", {
+  # Test with a crop group that doesn't exist
+  expect_message(
+    result <- list_gaez_crops(crop_group = "nonexistent", theme = 4),
+    "No crops found matching crop_group"
+  )
+  expect_message(
+    result <- list_gaez_crops(crop_group = "nonexistent", theme = 4),
+    "Available crop groups for theme"
+  )
+  expect_message(
+    result <- list_gaez_crops(crop_group = "nonexistent", theme = 4),
+    "Please resubmit your query"
+  )
+  expect_null(result)
+})
+
+test_that("list_gaez_crops shows correct available groups for each theme", {
+  # Test that the message contains expected crop groups for theme 4
+  expect_message(
+    result <- list_gaez_crops(crop_group = "xyz123", theme = 4),
+    "Cereals"  # Should be in theme 4
+  )
+})
+
 test_that("show_gaez_examples runs without error", {
   expect_output(show_gaez_examples(), "GAEZ v5 Function Examples")
   expect_invisible(show_gaez_examples())

@@ -90,7 +90,6 @@ The function automatically searches for existing downloads in:
 \item The specified download_dir
 \item Data/GAEZ/
 \item GAEZ/ (in working directory)
-\item Data/GAEZ_Niger_Analysis/ (legacy location)
 }
 }
 \examples{

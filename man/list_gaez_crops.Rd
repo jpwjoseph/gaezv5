@@ -20,7 +20,7 @@ Case-insensitive partial matching. Examples: "cereal", "oil", "pulse",
 }}
 }
 \value{
-A tibble with columns:
+A tibble with columns (or \code{NULL} if no match found):
 \itemize{
 \item \code{gaez_crop_code}: The crop code used in GAEZ URLs
 \item \code{name}: Full crop name
@@ -32,6 +32,11 @@ A tibble with columns:
 Returns a table of available crops in the GAEZ v5 database. Different themes
 use different crop coding systems, so specify the appropriate theme for your
 analysis. Optionally filter by crop group (e.g., cereals, oil crops).
+}
+\details{
+If no crops match the specified \code{crop_group}, the function will display
+all available crop groups for the selected theme and return \code{NULL}
+invisibly, prompting you to resubmit with a valid crop group.
 }
 \examples{
 \dontrun{
@@ -46,6 +51,10 @@ list_gaez_crops(crop_group = "oil")
 
 # List crops for theme 3 (4-letter codes)
 list_gaez_crops(theme = 3)
+
+# If no match found, available groups are displayed
+list_gaez_crops(crop_group = "invalid_group")
+# Returns NULL and shows: "Available crop groups for theme 4: ..."
 }
 
 }
