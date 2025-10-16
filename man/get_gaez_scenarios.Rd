@@ -2,7 +2,7 @@
 % Please edit documentation in R/data_access.R
 \name{get_gaez_scenarios}
 \alias{get_gaez_scenarios}
-\title{Get GAEZ v5 Scenarios Table}
+\title{Get GAEZ v5 Scenarios Table (Internal)}
 \usage{
 get_gaez_scenarios()
 }
@@ -18,18 +18,11 @@ A tibble with multiple types of scenario information including:
 }
 \description{
 Returns reference data for time periods, climate models, SSP scenarios, and
-water management codes used in GAEZ v5.
+water management codes used in GAEZ v5. This is an internal function that
+returns the full scenarios table. Users should use \code{\link{list_gaez_scenarios}}
+instead, which provides filtered, user-friendly views of scenario information.
 }
-\examples{
-\dontrun{
-# Get all scenarios
-scenarios <- get_gaez_scenarios()
-View(scenarios)
-
-# Get just time periods
-library(dplyr)
-time_periods <- get_gaez_scenarios() \%>\%
-  filter(!is.na(time_period))
+\seealso{
+\code{\link{list_gaez_scenarios}} for user-friendly scenario listings
 }
-
-}
+\keyword{internal}

@@ -134,7 +134,13 @@ show_gaez_examples <- function() {
   cat("   list_gaez_crops()\n")
   cat("   list_gaez_crops(crop_group = 'cereals')\n\n")
 
-  cat("5. Download datasets:\n")
+  cat("5. List scenarios:\n")
+  cat("   list_gaez_scenarios()  # Time periods by default\n")
+  cat("   list_gaez_scenarios('climate_model')\n")
+  cat("   list_gaez_scenarios('ssp')\n")
+  cat("   list_gaez_scenarios('water_management')\n\n")
+
+  cat("6. Download datasets:\n")
   cat("   download_gaez_dataset()\n")
   cat(
     "   download_gaez_dataset(variable = 'RES05-YX', crop = 'maize', time_period = 'HP0120')\n"
@@ -143,11 +149,11 @@ show_gaez_examples <- function() {
     "   batch_download_gaez_datasets(variables = c('RES05-YX', 'RES05-ETC'), crops = c('sorghum', 'pearl millet'))\n\n"
   )
 
-  cat("6. File management:\n")
+  cat("7. File management:\n")
   cat("   check_url_exists(url)\n")
   cat("   list_downloaded_files()\n\n")
 
-  cat("7. Climate/SSP validation:\n")
+  cat("8. Climate/SSP validation:\n")
   cat("   validate_climate_ssp('HP0120', 'AGERA5', 'HIST')\n")
   cat("   validate_climate_ssp('FP4160', 'ENSEMBLE', 'SSP370')\n\n")
 
@@ -178,6 +184,184 @@ print.gaez_batch_result <- function(x, ...) {
     cat("Failed:", length(x) - successes, "\n")
   }
   invisible(x)
+}
+
+
+#' List available GAEZ scenarios
+#'
+#' Returns a table of scenario information for one dimension (time periods,
+#' climate models, SSP scenarios, or water management codes). This function
+#' provides a user-friendly way to explore available scenarios and understand
+#' which combinations are valid for different time periods.
+#'
+#' @param type Character - Type of scenario information to list. Options:
+#'   \itemize{
+#'     \item \code{"time_period"} (default): Time periods with years and descriptions
+#'     \item \code{"climate_model"}: Available climate models
+#'     \item \code{"ssp"}: Shared Socioeconomic Pathway scenarios
+#'     \item \code{"water_management"}: Water management codes
+#'     \item \code{"water_supply"}: Water supply codes
+#'   }
+#'
+#' @return A tibble containing the requested scenario information. For time
+#'   periods, includes an additional note about which climate models are
+#'   available for each period. Returns \code{NULL} invisibly if an invalid
+#'   type is provided (after showing available options).
+#'
+#' @details
+#' ## Scenario Combinations
+#' Not all combinations of scenarios are valid in GAEZ v5:
+#' \itemize{
+#'   \item **Historical periods** (HP8100, HP0120): Only work with AGERA5
+#'     climate model and HIST scenario
+#'   \item **Future periods** (FP2140, FP4160, FP6180, FP8100): Work with
+#'     6 climate models (ENSEMBLE, GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR,
+#'     MRI-ESM2-0, UKESM1-0-LL) and 3 SSP scenarios (SSP126, SSP370, SSP585)
+#' }
+#'
+#' ## Other Scenario Types
+#' Use \code{type} parameter to query different scenario dimensions:
+#' \itemize{
+#'   \item \code{"climate_model"}: List available climate models
+#'   \item \code{"ssp"}: List SSP scenarios
+#'   \item \code{"water_management"}: List water management codes (for themes 3-4)
+#'   \item \code{"water_supply"}: List water supply codes (for themes 5-6)
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # List time periods (default)
+#' list_gaez_scenarios()
+#'
+#' # List climate models
+#' list_gaez_scenarios("climate_model")
+#'
+#' # List SSP scenarios
+#' list_gaez_scenarios("ssp")
+#'
+#' # List water management codes
+#' list_gaez_scenarios("water_management")
+#'
+#' # List water supply codes
+#' list_gaez_scenarios("water_supply")
+#'
+#' # Invalid type shows available options
+#' list_gaez_scenarios("invalid")
+#' }
+#'
+#' @export
+#' @importFrom dplyr filter select
+list_gaez_scenarios <- function(type = "time_period") {
+  # Validate type parameter
+  valid_types <- c("time_period", "climate_model", "ssp", "water_management", "water_supply")
+
+  if (!type %in% valid_types) {
+    message(
+      "Invalid scenario type '", type, "'.\n\n",
+      "Valid options:\n",
+      "  - time_period: Time periods with years and descriptions\n",
+      "  - climate_model: Available climate models\n",
+      "  - ssp: Shared Socioeconomic Pathway scenarios\n",
+      "  - water_management: Water management codes\n",
+      "  - water_supply: Water supply codes\n\n",
+      "Please resubmit with one of the valid types."
+    )
+    return(invisible(NULL))
+  }
+
+  # Get scenarios based on type
+  result <- switch(
+    type,
+    "time_period" = {
+      scenarios <- gaez_scenarios |>
+        filter(!is.na(time_period)) |>
+        select(time_period, description, start_year, end_year)
+
+      # Add informative message about climate model combinations
+      message(
+        "GAEZ v5 Time Periods\n",
+        "====================\n\n",
+        "Historical periods (HP*):\n",
+        "  - Only work with AGERA5 climate model and HIST scenario\n\n",
+        "Future periods (FP*):\n",
+        "  - Work with 6 climate models: ENSEMBLE (recommended), GFDL-ESM4,\n",
+        "    IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL\n",
+        "  - Work with 3 SSP scenarios: SSP126, SSP370, SSP585\n\n",
+        "Use list_gaez_scenarios('climate_model') to see available climate models.\n",
+        "Use list_gaez_scenarios('ssp') to see available SSP scenarios.\n"
+      )
+
+      scenarios
+    },
+    "climate_model" = {
+      scenarios <- gaez_scenarios |>
+        filter(!is.na(climate_model)) |>
+        select(climate_model, description)
+
+      message(
+        "GAEZ v5 Climate Models\n",
+        "======================\n\n",
+        "Historical periods (HP8100, HP0120):\n",
+        "  - AGERA5 only\n\n",
+        "Future periods (FP2140, FP4160, FP6180, FP8100):\n",
+        "  - ENSEMBLE (multi-model mean, recommended)\n",
+        "  - GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL\n\n",
+        "Use list_gaez_scenarios('time_period') to see available time periods.\n"
+      )
+
+      scenarios
+    },
+    "ssp" = {
+      scenarios <- gaez_scenarios |>
+        filter(!is.na(ssp)) |>
+        select(ssp, description)
+
+      message(
+        "GAEZ v5 SSP Scenarios\n",
+        "=====================\n\n",
+        "Historical periods: HIST\n",
+        "Future periods: SSP126 (low emissions), SSP370 (medium), SSP585 (high)\n\n",
+        "Use list_gaez_scenarios('time_period') to see available time periods.\n"
+      )
+
+      scenarios
+    },
+    "water_management" = {
+      scenarios <- gaez_scenarios |>
+        filter(!is.na(water_management_code)) |>
+        select(water_management_code, description)
+
+      message(
+        "GAEZ v5 Water Management Codes\n",
+        "===============================\n\n",
+        "Used in themes 3 (Agro-climatic Potential Yield) and\n",
+        "4 (Suitability & Attainable Yield).\n\n",
+        "Input level: High (H) or Low (L)\n",
+        "Water supply: Rain-fed (R) or Irrigated (I)\n",
+        "Management: Low (L) or Mixed (M)\n\n",
+        "Use list_gaez_scenarios('water_supply') for themes 5-6 codes.\n"
+      )
+
+      scenarios
+    },
+    "water_supply" = {
+      scenarios <- gaez_scenarios |>
+        filter(!is.na(water_supply)) |>
+        select(water_supply, description)
+
+      message(
+        "GAEZ v5 Water Supply Codes\n",
+        "==========================\n\n",
+        "Used in themes 5 (Actual Yields & Production) and\n",
+        "6 (Yield & Production Gaps).\n\n",
+        "Use list_gaez_scenarios('water_management') for themes 3-4 codes.\n"
+      )
+
+      scenarios
+    }
+  )
+
+  return(result)
 }
 
 

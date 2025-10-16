@@ -79,10 +79,12 @@ get_gaez_crops <- function(theme = NULL) {
 }
 
 
-#' Get GAEZ v5 Scenarios Table
+#' Get GAEZ v5 Scenarios Table (Internal)
 #'
 #' Returns reference data for time periods, climate models, SSP scenarios, and
-#' water management codes used in GAEZ v5.
+#' water management codes used in GAEZ v5. This is an internal function that
+#' returns the full scenarios table. Users should use \code{\link{list_gaez_scenarios}}
+#' instead, which provides filtered, user-friendly views of scenario information.
 #'
 #' @return A tibble with multiple types of scenario information including:
 #' \itemize{
@@ -93,19 +95,9 @@ get_gaez_crops <- function(theme = NULL) {
 #'   \item Water supply codes (WSI, WSR, WST)
 #' }
 #'
-#' @examples
-#' \dontrun{
-#' # Get all scenarios
-#' scenarios <- get_gaez_scenarios()
-#' View(scenarios)
+#' @seealso \code{\link{list_gaez_scenarios}} for user-friendly scenario listings
 #'
-#' # Get just time periods
-#' library(dplyr)
-#' time_periods <- get_gaez_scenarios() %>%
-#'   filter(!is.na(time_period))
-#' }
-#'
-#' @export
+#' @keywords internal
 get_gaez_scenarios <- function() {
   gaez_scenarios
 }

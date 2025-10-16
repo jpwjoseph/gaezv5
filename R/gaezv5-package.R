@@ -16,6 +16,7 @@
 #'   \item \code{\link{download_gaez_dataset}}: Download single dataset
 #'   \item \code{\link{batch_download_gaez_datasets}}: Download multiple datasets
 #'   \item \code{\link{list_gaez_crops}}: List available crops
+#'   \item \code{\link{list_gaez_scenarios}}: List time periods, climate models, SSPs
 #'   \item \code{\link{list_downloaded_files}}: Inventory of local files
 #'   \item \code{\link{check_url_exists}}: Validate URLs before download
 #' }
@@ -24,7 +25,6 @@
 #' \itemize{
 #'   \item \code{\link{get_gaez_variables}}: Get table of all GAEZ variables
 #'   \item \code{\link{get_gaez_crops}}: Get table of all crop codes
-#'   \item \code{\link{get_gaez_scenarios}}: Get time periods, climate models, SSPs
 #' }
 #'
 #' @section Getting started:
