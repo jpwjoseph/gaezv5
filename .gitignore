@@ -11,3 +11,4 @@ Meta
 data/*.tif
 data/*.zip
 data/GAEZ/
+tests/review*
