@@ -167,6 +167,14 @@ The `gaezv5` package provides comprehensive tools for downloading and working wi
 
 ### Version 0.2.0 (Planned)
 
+* **Map Preview & Query via REST API**:
+  - `preview_gaez_map()` - Visual inspection of maps without downloading full datasets
+  - `query_gaez_value()` - Extract pixel values at specific coordinates
+  - `sample_gaez_data()` - Batch sampling at multiple locations for validation
+  - `get_gaez_stats()` - Regional summary statistics without processing large files
+  - Leverages FAO's ArcGIS ImageServer REST API for bandwidth-efficient data exploration
+  - 100-300x faster for exploratory analysis compared to full downloads
+
 * **Spatial Operations**:
   - Extract zonal statistics
 

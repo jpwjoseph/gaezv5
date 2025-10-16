@@ -340,6 +340,39 @@ data <- load_gaez_data(
 )
 ```
 
+## Planned Features
+
+### Interactive Data Preview (Coming in v0.2.0)
+
+Query and preview GAEZ maps without downloading full datasets via ArcGIS ImageServer REST API:
+
+**Functions in development**:
+- `preview_gaez_map()` - Visual inspection of maps before download
+- `query_gaez_value()` - Extract pixel values at specific coordinates
+- `sample_gaez_data()` - Batch sampling at multiple locations for validation
+- `get_gaez_stats()` - Regional summary statistics without processing large files
+
+**Benefits**:
+- 100-300x faster for exploratory analysis
+- Significant bandwidth savings (preview: ~100 KB vs. full dataset: ~800 MB)
+- Perfect for model validation and quick assessments
+- Interactive workflows for teaching and demonstrations
+
+**Example usage** (planned):
+```r
+# Preview map before downloading
+preview_gaez_map(crop = "MZE", time_period = "FP4160")
+
+# Extract values at field trial locations
+coords <- data.frame(lon = c(2.1, 3.5), lat = c(13.5, 14.2))
+values <- query_gaez_value(crop = "MZE", coordinates = coords)
+
+# Get country statistics without download
+stats <- get_gaez_stats(crop = "MZE", region = "Niger")
+```
+
+See [NEWS.md](NEWS.md) for complete roadmap.
+
 ## Data Sources
 
 All data is sourced from the FAO GAEZ v5 Data Portal:

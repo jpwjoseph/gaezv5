@@ -227,6 +227,7 @@ Potential additions based on this implementation:
 3. **Interactive selection**: Visual country selection via maps
 4. **Multi-country mosaics**: Combine data for multiple countries into single raster
 5. **Administrative level shortcuts**: `level = "province"` instead of numeric codes
+6. **REST API data preview**: Query pixel values and preview maps via ArcGIS ImageServer without downloading full files (see `FUTURE_PLANS.md` for detailed specifications)
 
 ## Version Information
 

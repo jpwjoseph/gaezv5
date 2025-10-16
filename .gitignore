@@ -14,3 +14,5 @@ data/GAEZ/
 tests/review*
 /doc/
 /Meta/
+# Future planning documents (internal)
+FUTURE_PLANS.md
