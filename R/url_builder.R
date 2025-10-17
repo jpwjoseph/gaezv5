@@ -8,10 +8,13 @@
 #'   (attainable yield). Use \code{lookup_gaez_variable()} to find variable codes.
 #' @param time_period Character - Time period code. Default is "FP4160" (2041-2060).
 #'   Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100"
-#' @param start_year Numeric - Start year. If provided with end_year, will look up
-#'   the corresponding time_period code.
-#' @param end_year Numeric - End year. Used with start_year for automatic time
-#'   period lookup.
+#' @param start_year Numeric - Start year for time period lookup (optional). Can be
+#'   provided alone or with end_year. If only start_year is given, returns the time
+#'   period containing that year. If both years are provided and span multiple periods,
+#'   prompts for selection. Must be between 1981-2100.
+#' @param end_year Numeric - End year for time period lookup (optional). Can be
+#'   provided alone or with start_year. If only end_year is given, returns the time
+#'   period containing that year. Must be between 1981-2100.
 #' @param climate_model Character - Climate model. NULL for auto-selection based
 #'   on time period. Historical periods use "AGERA5", future periods default to
 #'   "ENSEMBLE". Other options: "GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR",
@@ -63,6 +66,19 @@
 #'   ssp = "SSP370"
 #' )
 #'
+#' # Using single year - finds containing period
+#' build_gaez_url(
+#'   crop = "maize",
+#'   start_year = 2050
+#' )
+#'
+#' # Year range spanning multiple periods - prompts for selection
+#' build_gaez_url(
+#'   crop = "wheat",
+#'   start_year = 2030,
+#'   end_year = 2070
+#' )
+#'
 #' # Irrigated scenario
 #' build_gaez_url(
 #'   crop = "rice",
@@ -98,38 +114,158 @@ build_gaez_url <- function(variable = "RES05-YX",
   # Process crop input - use appropriate theme for crop lookup
   crop_code <- lookup_gaez_crop(crop, var_info$theme_number)
 
-  # Handle time period lookup if start_year and end_year provided
+  # Handle time period lookup if start_year and/or end_year provided
   if (!is.null(start_year) || !is.null(end_year)) {
-    if (is.null(start_year) || is.null(end_year)) {
-      stop("Both start_year and end_year must be provided together", call. = FALSE)
+    # Get time period data (only rows with time_period defined)
+    time_periods_data <- gaez_scenarios |>
+      filter(!is.na(time_period), !is.na(start_year), !is.na(end_year))
+
+    # Validate years are within GAEZ range
+    all_years <- c(start_year, end_year)
+    all_years <- all_years[!is.na(all_years)]
+
+    min_available <- min(time_periods_data$start_year)
+    max_available <- max(time_periods_data$end_year)
+
+    if (any(all_years < min_available | all_years > max_available)) {
+      invalid_years <- all_years[all_years < min_available | all_years > max_available]
+      error_msg <- paste0(
+        "Year(s) ", paste(invalid_years, collapse = ", "),
+        " outside available GAEZ data range (", min_available, "-", max_available, ").\n\n",
+        "Available time periods:\n"
+      )
+
+      # Format available periods
+      periods_info <- time_periods_data |>
+        select(time_period, description, start_year, end_year) |>
+        mutate(period_range = paste0(time_period, " (", start_year, "-", end_year, ")"))
+
+      for (i in seq_len(nrow(periods_info))) {
+        error_msg <- paste0(error_msg, "  - ", periods_info$period_range[i], "\n")
+      }
+
+      stop(error_msg, call. = FALSE)
     }
 
-    time_lookup <- gaez_scenarios |>
-      filter(!is.na(start_year), !is.na(end_year)) |>
-      filter(start_year == !!start_year, end_year == !!end_year)
+    # Case 1: Only start_year provided - find period containing this year
+    if (!is.null(start_year) && is.null(end_year)) {
+      time_lookup <- time_periods_data |>
+        filter(start_year <= !!start_year, end_year >= !!start_year)
 
-    if (nrow(time_lookup) > 0) {
+      if (nrow(time_lookup) == 0) {
+        stop(
+          paste("No time period found containing year", start_year),
+          call. = FALSE
+        )
+      }
+
       time_period <- time_lookup$time_period[1]
+      period_start <- time_lookup$start_year[1]
+      period_end <- time_lookup$end_year[1]
+
       message(
-        paste(
-          "Using time period:",
-          time_period,
-          "for years",
-          start_year,
-          "-",
-          end_year
+        paste0(
+          "Using time period ", time_period, " (", period_start, "-", period_end, "). ",
+          "Note: GAEZ data represents 20-year averages for this period."
         )
       )
-    } else {
-      stop(
-        paste(
-          "No time period found for years",
-          start_year,
-          "-",
-          end_year
-        ),
-        call. = FALSE
+    }
+
+    # Case 2: Only end_year provided - find period containing this year
+    else if (is.null(start_year) && !is.null(end_year)) {
+      time_lookup <- time_periods_data |>
+        filter(start_year <= !!end_year, end_year >= !!end_year)
+
+      if (nrow(time_lookup) == 0) {
+        stop(
+          paste("No time period found containing year", end_year),
+          call. = FALSE
+        )
+      }
+
+      time_period <- time_lookup$time_period[1]
+      period_start <- time_lookup$start_year[1]
+      period_end <- time_lookup$end_year[1]
+
+      message(
+        paste0(
+          "Using time period ", time_period, " (", period_start, "-", period_end, "). ",
+          "Note: GAEZ data represents 20-year averages for this period."
+        )
       )
+    }
+
+    # Case 3: Both start_year and end_year provided
+    else {
+      # Find all periods that overlap with the requested range
+      time_lookup <- time_periods_data |>
+        filter(
+          # Period starts before or during requested range AND ends during or after requested range
+          start_year <= !!end_year & end_year >= !!start_year
+        )
+
+      if (nrow(time_lookup) == 0) {
+        stop(
+          paste(
+            "No time period found for years",
+            start_year,
+            "-",
+            end_year
+          ),
+          call. = FALSE
+        )
+      }
+
+      # Single match or multiple matches in same period
+      if (nrow(time_lookup) == 1) {
+        time_period <- time_lookup$time_period[1]
+        period_start <- time_lookup$start_year[1]
+        period_end <- time_lookup$end_year[1]
+
+        message(
+          paste0(
+            "Using time period ", time_period, " (", period_start, "-", period_end, "). ",
+            "Note: GAEZ data represents 20-year averages for this period."
+          )
+        )
+      } else {
+        # Multiple time periods match the range - user needs to choose
+        message(paste0(
+          "The year range ", start_year, "-", end_year,
+          " spans multiple GAEZ time periods:"
+        ))
+
+        time_lookup_display <- time_lookup |>
+          mutate(option = seq_len(n())) |>
+          select(option, time_period, start_year, end_year)
+
+        print(time_lookup_display)
+
+        # For automated testing or non-interactive mode, select the first match
+        if (interactive() && !isTRUE(getOption("gaez_testing_mode", FALSE))) {
+          choice <- as.numeric(readline("Please enter the number of your choice: "))
+
+          if (is.na(choice) || choice < 1 || choice > nrow(time_lookup)) {
+            stop("Invalid choice. Please run the function again.", call. = FALSE)
+          }
+
+          selected_period <- time_lookup[choice, ]
+        } else {
+          message("Non-interactive mode: selecting first time period match")
+          selected_period <- time_lookup[1, ]
+        }
+
+        time_period <- selected_period$time_period
+        period_start <- selected_period$start_year
+        period_end <- selected_period$end_year
+
+        message(
+          paste0(
+            "Selected time period ", time_period, " (", period_start, "-", period_end, "). ",
+            "Note: GAEZ data represents 20-year averages for this period."
+          )
+        )
+      }
     }
   }
 
