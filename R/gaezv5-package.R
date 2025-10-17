@@ -1,13 +1,3 @@
-#' @keywords internal
-"_PACKAGE"
-
-#' gaezv5: Download and Process GAEZ v5 Data
-#'
-#' The gaezv5 package provides tools for downloading and working with GAEZ
-#' (Global Agro-Ecological Zones) version 5 data from the FAO. GAEZ v5 provides
-#' comprehensive global data on agricultural potential, crop suitability, yield
-#' estimates, and agro-climatic resources.
-#'
 #' @section Main functions:
 #' \itemize{
 #'   \item \code{\link{lookup_gaez_variable}}: Find variable codes
@@ -65,11 +55,8 @@
 #'   \item Examples: \code{show_gaez_examples()}
 #' }
 #'
-#' @docType package
-#' @name gaezv5-package
-#' @aliases gaezv5
-#'
-#' @author Julian Joseph \email{joseph@@iiasa.ac.at}
+#' @keywords internal
+"_PACKAGE"
 #'
 #' @importFrom dplyr filter mutate select arrange group_by summarise bind_rows pull first
 #' @importFrom stringr str_detect str_to_lower str_to_upper str_starts str_ends str_remove str_extract

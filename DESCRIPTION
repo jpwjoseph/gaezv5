@@ -2,13 +2,11 @@ Package: gaezv5
 Type: Package
 Title: Download and Process GAEZ v5 Agricultural Data
 Version: 0.1.2
-Authors@R: c(
+Authors@R:
     person("Julian", "Joseph",
            email = "joseph@iiasa.ac.at",
-           role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-3844-7807")),
-    person("IIASA", role = "cph")
-    )
+           role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0002-3844-7807"))
 Description: Tools for downloading and working with Global Agro-Ecological Zones
     (GAEZ) version 5 data from the Food and Agriculture Organization (FAO).
     GAEZ v5 provides comprehensive global data on agricultural potential, crop

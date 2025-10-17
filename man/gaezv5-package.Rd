@@ -2,16 +2,11 @@
 % Please edit documentation in R/gaezv5-package.R
 \docType{package}
 \name{gaezv5-package}
-\alias{gaezv5-package}
 \alias{gaezv5}
+\alias{gaezv5-package}
 \title{gaezv5: Download and Process GAEZ v5 Agricultural Data}
 \description{
 Tools for downloading and working with Global Agro-Ecological Zones (GAEZ) version 5 data from the Food and Agriculture Organization (FAO). GAEZ v5 provides comprehensive global data on agricultural potential, crop suitability, attainable yields, and agro-climatic resources. This package simplifies data access through intuitive functions for searching variables, building download URLs, and batch downloading datasets across multiple crops, scenarios, and time periods. Features efficient parallel downloads, time series support, and flexible parameter handling for climate change impact studies.
-
-The gaezv5 package provides tools for downloading and working with GAEZ
-(Global Agro-Ecological Zones) version 5 data from the FAO. GAEZ v5 provides
-comprehensive global data on agricultural potential, crop suitability, yield
-estimates, and agro-climatic resources.
 }
 \section{Main functions}{
 
@@ -87,23 +82,9 @@ Useful links:
   \item Report bugs at \url{https://github.com/jpwjoseph/gaezv5/issues}
 }
 
-
-Useful links:
-\itemize{
-  \item \url{https://github.com/jpwjoseph/gaezv5}
-  \item Report bugs at \url{https://github.com/jpwjoseph/gaezv5/issues}
-}
-
 }
 \author{
-\strong{Maintainer}: Julian Joseph \email{joseph@iiasa.ac.at} (\href{https://orcid.org/0000-0002-3844-7807}{ORCID})
+\strong{Maintainer}: Julian Joseph \email{joseph@iiasa.ac.at} (\href{https://orcid.org/0000-0002-3844-7807}{ORCID}) [copyright holder]
 
-Other contributors:
-\itemize{
-  \item IIASA [copyright holder]
-}
-
-
-Julian Joseph \email{joseph@iiasa.ac.at}
 }
 \keyword{internal}
