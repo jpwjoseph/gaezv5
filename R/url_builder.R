@@ -32,6 +32,9 @@
 #' @param resolution Character - Resolution preference. Options: "1km", "10km", or
 #'   NA (uses default for variable). Note: not all variables have multiple
 #'   resolutions.
+#' @param interactive Logical - Whether to prompt for user input when multiple
+#'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+#'   to automatically select the best match without prompting.
 #'
 #' @return Character string containing the complete HTTPS download URL
 #'
@@ -72,11 +75,19 @@
 #'   start_year = 2050
 #' )
 #'
-#' # Year range spanning multiple periods - prompts for selection
+#' # Year range spanning multiple periods - prompts for selection (interactive mode)
 #' build_gaez_url(
 #'   crop = "wheat",
 #'   start_year = 2030,
 #'   end_year = 2070
+#' )
+#'
+#' # Auto-select without prompting
+#' build_gaez_url(
+#'   crop = "wheat",
+#'   start_year = 2030,
+#'   end_year = 2070,
+#'   interactive = FALSE
 #' )
 #'
 #' # Irrigated scenario
@@ -98,7 +109,8 @@ build_gaez_url <- function(variable = "RES05-YX",
                            crop = "WHEA",
                            water_management_level = "HRLM",
                            water_supply = "WSR",
-                           resolution = NA) {
+                           resolution = NA,
+                           interactive = TRUE) {
   # Normalize inputs to uppercase for consistent matching
   # GAEZ codes are case-sensitive but we accept lowercase for convenience
   variable <- toupper(variable)
@@ -112,7 +124,7 @@ build_gaez_url <- function(variable = "RES05-YX",
   var_info <- lookup_gaez_variable(variable)
 
   # Process crop input - use appropriate theme for crop lookup
-  crop_code <- lookup_gaez_crop(crop, var_info$theme_number)
+  crop_code <- lookup_gaez_crop(crop, var_info$theme_number, interactive = interactive)
 
   # Handle time period lookup if start_year and/or end_year provided
   if (!is.null(start_year) || !is.null(end_year)) {
@@ -241,8 +253,12 @@ build_gaez_url <- function(variable = "RES05-YX",
 
         print(time_lookup_display)
 
-        # For automated testing or non-interactive mode, select the first match
-        if (interactive() && !isTRUE(getOption("gaez_testing_mode", FALSE))) {
+        # Check if we should use interactive mode or auto-select
+        # Use function parameter if provided, otherwise R session's interactive state
+        use_interactive <- interactive & interactive()
+
+        if (use_interactive) {
+          # Interactive mode - prompt user to select
           choice <- as.numeric(readline("Please enter the number of your choice: "))
 
           if (is.na(choice) || choice < 1 || choice > nrow(time_lookup)) {
@@ -251,7 +267,8 @@ build_gaez_url <- function(variable = "RES05-YX",
 
           selected_period <- time_lookup[choice, ]
         } else {
-          message("Non-interactive mode: selecting first time period match")
+          # Auto-select mode - select first match
+          message("Auto-selecting first time period match")
           selected_period <- time_lookup[1, ]
         }
 

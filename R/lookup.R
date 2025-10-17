@@ -126,6 +126,9 @@ lookup_gaez_variable <- function(user_input) {
 #' use different crop code systems (3-letter vs 4-letter codes). This function
 #' searches within the specified theme and returns the appropriate crop code.
 #'
+#' When multiple matches are found, uses intelligent matching to select the best
+#' option based on exact matches, word boundaries, and string distance.
+#'
 #' @param crop_name Character string - Crop name or code to search for.
 #'   Case-insensitive. Supports partial matching on crop names.
 #' @param theme Numeric - GAEZ theme number (3, 4, 5, or 6). Default is 4.
@@ -135,8 +138,29 @@ lookup_gaez_variable <- function(user_input) {
 #'     \item Theme 5: Module VI - Actual yields (3-letter codes)
 #'     \item Theme 6: Module VI - Yield gaps (3-letter codes)
 #'   }
+#' @param interactive Logical - Whether to prompt for user input when multiple
+#'   matches are found. Default is TRUE. Set to FALSE to automatically select
+#'   the best match without prompting.
 #'
 #' @return Character string - The GAEZ crop code (e.g., "MZE" for maize in theme 4)
+#'
+#' @details
+#' ## Match Selection Algorithm
+#' When multiple crops match the input, they are ranked by quality:
+#' \enumerate{
+#'   \item **Exact matches** (case-insensitive): "wheat" matches "Wheat" exactly
+#'   \item **Word-boundary matches**: "wheat" starts the word "Wheat" (higher priority
+#'     than matching within "Buckwheat")
+#'   \item **String distance**: Closest match using Levenshtein distance
+#' }
+#'
+#' ## Interactive vs Auto-Select Mode
+#' \itemize{
+#'   \item **Default (interactive = TRUE)**: Prompts user to select from a numbered
+#'     list when multiple matches are found
+#'   \item **Auto-select (interactive = FALSE)**: Automatically selects the best match
+#'     based on match quality without prompting
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -149,14 +173,18 @@ lookup_gaez_variable <- function(user_input) {
 #' # Exact code match
 #' lookup_gaez_crop("MZE", theme = 4)
 #'
-#' # Partial name match
-#' lookup_gaez_crop("pearl", theme = 4)  # Finds "Pearl millet"
+#' # Partial name match - intelligent selection with user prompt (default)
+#' lookup_gaez_crop("wheat", theme = 4)  # Prompts to choose between matches
+#'
+#' # Auto-select best match without prompting
+#' lookup_gaez_crop("wheat", theme = 4, interactive = FALSE)
+#' # Auto-selects "Wheat" (exact match)
 #' }
 #'
 #' @export
-#' @importFrom dplyr filter mutate select n
+#' @importFrom dplyr filter mutate select n arrange desc
 #' @importFrom stringr str_to_upper str_to_lower str_detect
-lookup_gaez_crop <- function(crop_name, theme = 4) {
+lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
   if (missing(crop_name) || is.null(crop_name) || crop_name == "") {
     stop("Please provide a crop name to search for.", call. = FALSE)
   }
@@ -198,6 +226,26 @@ lookup_gaez_crop <- function(crop_name, theme = 4) {
     )
   }
 
+  # Calculate match quality for intelligent selection
+  crop_name_lower <- str_to_lower(crop_name)
+
+  name_matches <- name_matches |>
+    mutate(
+      # Is it an exact match (case-insensitive)?
+      exact_match = str_to_lower(name) == crop_name_lower,
+      # Does the input start a word in the name (word boundary)?
+      word_start_match = str_detect(
+        str_to_lower(name),
+        paste0("\\b", crop_name_lower)
+      ),
+      # String distance using base R (Levenshtein distance)
+      string_dist = sapply(str_to_lower(name), function(x) {
+        adist(crop_name_lower, x)[1, 1]
+      })
+    ) |>
+    # Sort by match quality: exact > word_start > string distance
+    arrange(desc(exact_match), desc(word_start_match), string_dist)
+
   if (nrow(name_matches) == 1) {
     message(
       paste(
@@ -210,26 +258,52 @@ lookup_gaez_crop <- function(crop_name, theme = 4) {
     return(name_matches$gaez_crop_code)
   }
 
-  # Multiple matches - show options
-  message(paste("Multiple crop matches found for:", crop_name))
-  name_matches |>
-    mutate(option = seq_len(n())) |>
-    select(option, gaez_crop_code, name, gaez_crop_group) |>
-    print()
+  # Multiple matches found
+  # Check if we should use interactive mode or auto-select
+  # Use function parameter if provided, otherwise R session's interactive state
+  use_interactive <- interactive & interactive()
 
-  # For automated testing or non-interactive mode, select the first match
-  if (interactive() && !isTRUE(getOption("gaez_testing_mode", FALSE))) {
-    choice <- as.numeric(readline("Please enter the number of your choice: "))
+  # Auto-select mode - select best match without prompting
+  if (!use_interactive) {
+    # Select the best match (first after sorting by quality)
+    selected_crop <- name_matches[1, ]
 
-    if (is.na(choice) || choice < 1 || choice > nrow(name_matches)) {
-      stop("Invalid choice. Please run the function again.", call. = FALSE)
+    # Provide informative message about why this was selected
+    if (selected_crop$exact_match) {
+      match_reason <- "exact match"
+    } else if (selected_crop$word_start_match) {
+      match_reason <- paste0("best word-boundary match (distance: ", selected_crop$string_dist, ")")
+    } else {
+      match_reason <- paste0("closest match (distance: ", selected_crop$string_dist, ")")
     }
 
-    selected_crop <- name_matches[choice, ]
-  } else {
-    message("Non-interactive mode: selecting first crop match")
-    selected_crop <- name_matches[1, ]
+    message(
+      paste0(
+        "Auto-selected: ", selected_crop$name, " -> ", selected_crop$gaez_crop_code,
+        " (", match_reason, ")"
+      )
+    )
+    return(selected_crop$gaez_crop_code)
   }
+
+  # Interactive mode - show options for user selection
+  message(paste("Multiple crop matches found for:", crop_name))
+
+  # Display matches without the quality scoring columns
+  name_matches_display <- name_matches |>
+    mutate(option = seq_len(n())) |>
+    select(option, gaez_crop_code, name, gaez_crop_group)
+
+  print(name_matches_display)
+
+  # Prompt user for selection
+  choice <- as.numeric(readline("Please enter the number of your choice: "))
+
+  if (is.na(choice) || choice < 1 || choice > nrow(name_matches)) {
+    stop("Invalid choice. Please run the function again.", call. = FALSE)
+  }
+
+  selected_crop <- name_matches[choice, ]
 
   message(
     paste(

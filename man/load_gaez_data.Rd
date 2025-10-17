@@ -22,7 +22,8 @@ load_gaez_data(
   country = NULL,
   mask_to_boundary = TRUE,
   keep_global = TRUE,
-  return_metadata = FALSE
+  return_metadata = FALSE,
+  interactive = TRUE
 )
 }
 \arguments{
@@ -78,6 +79,10 @@ after successful cropping to save disk space.}
 \item{return_metadata}{Logical - If TRUE, returns a list containing both the
 SpatRaster object and the download metadata. If FALSE (default), returns
 only the SpatRaster object.}
+
+\item{interactive}{Logical - Whether to prompt for user input when multiple
+matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+to automatically select the best match without prompting.}
 }
 \value{
 If \code{return_metadata = FALSE} (default), returns a terra SpatRaster

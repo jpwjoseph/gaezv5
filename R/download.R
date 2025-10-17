@@ -24,6 +24,9 @@
 #' @param validate_inputs Logical - Whether to validate inputs before download
 #'   (default: TRUE). Reserved for future use.
 #' @param verbose Logical - Whether to show detailed progress messages (default: TRUE)
+#' @param interactive Logical - Whether to prompt for user input when multiple
+#'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+#'   to automatically select the best match without prompting.
 #'
 #' @return A list with the following elements:
 #'   \itemize{
@@ -100,7 +103,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
                                    download_dir = NULL,
                                    overwrite = FALSE,
                                    validate_inputs = TRUE,
-                                   verbose = TRUE) {
+                                   verbose = TRUE,
+                                   interactive = TRUE) {
   # Initialize result object
   result <- list(
     success = FALSE,
@@ -133,7 +137,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
       crop = crop,
       water_management_level = water_management_level,
       water_supply = water_supply,
-      resolution = resolution
+      resolution = resolution,
+      interactive = interactive
     )
 
     # Restore user's testing mode setting
@@ -1025,6 +1030,9 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 #' @param return_metadata Logical - If TRUE, returns a list containing both the
 #'   SpatRaster object and the download metadata. If FALSE (default), returns
 #'   only the SpatRaster object.
+#' @param interactive Logical - Whether to prompt for user input when multiple
+#'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+#'   to automatically select the best match without prompting.
 #'
 #' @return If \code{return_metadata = FALSE} (default), returns a terra SpatRaster
 #'   object. If \code{return_metadata = TRUE}, returns a list with two elements:
@@ -1150,7 +1158,8 @@ load_gaez_data <- function(variable = "RES05-YX",
                             country = NULL,
                             mask_to_boundary = TRUE,
                             keep_global = TRUE,
-                            return_metadata = FALSE) {
+                            return_metadata = FALSE,
+                            interactive = TRUE) {
   # Check if terra is available
   if (!requireNamespace("terra", quietly = TRUE)) {
     stop(
@@ -1175,7 +1184,8 @@ load_gaez_data <- function(variable = "RES05-YX",
     download_dir = download_dir,
     overwrite = overwrite,
     validate_inputs = validate_inputs,
-    verbose = verbose
+    verbose = verbose,
+    interactive = interactive
   )
 
   # Check if download was successful

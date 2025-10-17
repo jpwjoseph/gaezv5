@@ -14,7 +14,8 @@ build_gaez_url(
   crop = "WHEA",
   water_management_level = "HRLM",
   water_supply = "WSR",
-  resolution = NA
+  resolution = NA,
+  interactive = TRUE
 )
 }
 \arguments{
@@ -24,11 +25,14 @@ build_gaez_url(
 \item{time_period}{Character - Time period code. Default is "FP4160" (2041-2060).
 Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100"}
 
-\item{start_year}{Numeric - Start year. If provided with end_year, will look up
-the corresponding time_period code.}
+\item{start_year}{Numeric - Start year for time period lookup (optional). Can be
+provided alone or with end_year. If only start_year is given, returns the time
+period containing that year. If both years are provided and span multiple periods,
+prompts for selection. Must be between 1981-2100.}
 
-\item{end_year}{Numeric - End year. Used with start_year for automatic time
-period lookup.}
+\item{end_year}{Numeric - End year for time period lookup (optional). Can be
+provided alone or with start_year. If only end_year is given, returns the time
+period containing that year. Must be between 1981-2100.}
 
 \item{climate_model}{Character - Climate model. NULL for auto-selection based
 on time period. Historical periods use "AGERA5", future periods default to
@@ -52,6 +56,10 @@ Use \code{lookup_gaez_crop()} to find crop codes.}
 \item{resolution}{Character - Resolution preference. Options: "1km", "10km", or
 NA (uses default for variable). Note: not all variables have multiple
 resolutions.}
+
+\item{interactive}{Logical - Whether to prompt for user input when multiple
+matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+to automatically select the best match without prompting.}
 }
 \value{
 Character string containing the complete HTTPS download URL
@@ -90,6 +98,27 @@ build_gaez_url(
   start_year = 2041,
   end_year = 2060,
   ssp = "SSP370"
+)
+
+# Using single year - finds containing period
+build_gaez_url(
+  crop = "maize",
+  start_year = 2050
+)
+
+# Year range spanning multiple periods - prompts for selection (interactive mode)
+build_gaez_url(
+  crop = "wheat",
+  start_year = 2030,
+  end_year = 2070
+)
+
+# Auto-select without prompting
+build_gaez_url(
+  crop = "wheat",
+  start_year = 2030,
+  end_year = 2070,
+  interactive = FALSE
 )
 
 # Irrigated scenario

@@ -18,7 +18,8 @@ download_gaez_dataset(
   download_dir = NULL,
   overwrite = FALSE,
   validate_inputs = TRUE,
-  verbose = TRUE
+  verbose = TRUE,
+  interactive = TRUE
 )
 }
 \arguments{
@@ -54,6 +55,10 @@ If FALSE and file exists, returns immediately without downloading.}
 (default: TRUE). Reserved for future use.}
 
 \item{verbose}{Logical - Whether to show detailed progress messages (default: TRUE)}
+
+\item{interactive}{Logical - Whether to prompt for user input when multiple
+matches are found (for crops or time periods). Default is TRUE. Set to FALSE
+to automatically select the best match without prompting.}
 }
 \value{
 A list with the following elements:

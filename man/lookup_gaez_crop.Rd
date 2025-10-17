@@ -4,7 +4,7 @@
 \alias{lookup_gaez_crop}
 \title{Look up GAEZ v5 crop codes}
 \usage{
-lookup_gaez_crop(crop_name, theme = 4)
+lookup_gaez_crop(crop_name, theme = 4, interactive = TRUE)
 }
 \arguments{
 \item{crop_name}{Character string - Crop name or code to search for.
@@ -17,6 +17,10 @@ Case-insensitive. Supports partial matching on crop names.}
 \item Theme 5: Module VI - Actual yields (3-letter codes)
 \item Theme 6: Module VI - Yield gaps (3-letter codes)
 }}
+
+\item{interactive}{Logical - Whether to prompt for user input when multiple
+matches are found. Default is TRUE. Set to FALSE to automatically select
+the best match without prompting.}
 }
 \value{
 Character string - The GAEZ crop code (e.g., "MZE" for maize in theme 4)
@@ -25,6 +29,30 @@ Character string - The GAEZ crop code (e.g., "MZE" for maize in theme 4)
 Searches for GAEZ v5 crop codes by crop name or code. Different GAEZ themes
 use different crop code systems (3-letter vs 4-letter codes). This function
 searches within the specified theme and returns the appropriate crop code.
+}
+\details{
+When multiple matches are found, uses intelligent matching to select the best
+option based on exact matches, word boundaries, and string distance.
+\subsection{Match Selection Algorithm}{
+
+When multiple crops match the input, they are ranked by quality:
+\enumerate{
+\item \strong{Exact matches} (case-insensitive): "wheat" matches "Wheat" exactly
+\item \strong{Word-boundary matches}: "wheat" starts the word "Wheat" (higher priority
+than matching within "Buckwheat")
+\item \strong{String distance}: Closest match using Levenshtein distance
+}
+}
+
+\subsection{Interactive vs Auto-Select Mode}{
+
+\itemize{
+\item \strong{Default (interactive = TRUE)}: Prompts user to select from a numbered
+list when multiple matches are found
+\item \strong{Auto-select (interactive = FALSE)}: Automatically selects the best match
+based on match quality without prompting
+}
+}
 }
 \examples{
 \dontrun{
@@ -37,8 +65,12 @@ lookup_gaez_crop("maize", theme = 3)  # Returns "MAIZ"
 # Exact code match
 lookup_gaez_crop("MZE", theme = 4)
 
-# Partial name match
-lookup_gaez_crop("pearl", theme = 4)  # Finds "Pearl millet"
+# Partial name match - intelligent selection with user prompt (default)
+lookup_gaez_crop("wheat", theme = 4)  # Prompts to choose between matches
+
+# Auto-select best match without prompting
+lookup_gaez_crop("wheat", theme = 4, interactive = FALSE)
+# Auto-selects "Wheat" (exact match)
 }
 
 }
