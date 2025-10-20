@@ -16,3 +16,6 @@ tests/review*
 /Meta/
 # Future planning documents (internal)
 FUTURE_PLANS.md
+
+# Test scripts for ImageServer API development
+test_imageserver_api.R

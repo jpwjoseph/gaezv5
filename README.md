@@ -7,6 +7,7 @@ An R package for downloading, processing, and analyzing Global Agro-Ecological Z
 ### Core Functionality
 
 -   🚀 **Simple Data Loading**: One-function workflow with `load_gaez_data()`
+-   🗺️ **Interactive Map Previews**: Fast visualization via REST API with `preview_gaez_map()`
 -   🌍 **Country-Level Cropping**: Automatic spatial subsetting to country boundaries
 -   📦 **Batch Processing**: Download and combine multiple datasets efficiently
 -   💾 **NetCDF Export**: Efficient multi-layer data storage
@@ -29,7 +30,30 @@ devtools::install_github("jpwjoseph/gaezv5")
 
 Consult the vignette for a comprehensive tutorial: [**Getting Started Vignette**](vignettes/getting-started.md)
 
-### Simplest Workflow: Load Data Directly
+### Preview Data Before Downloading
+
+``` r
+library(gaezv5)
+
+# Interactive map preview (no download needed!)
+preview_gaez_map(
+  variable = "RES05-YX",   # Attainable yield
+  crop = "wheat",
+  time_period = "FP4160",  # 2041-2060
+  ssp = "SSP370"
+)
+# Opens interactive leaflet map in viewer/browser
+
+# Or use year ranges instead of period codes
+preview_gaez_map(
+  crop = "maize",
+  start_year = 2050,       # Automatically finds FP4160 (2041-2060)
+  ssp = "SSP370",
+  country = "Kenya"
+)
+```
+
+### Load Data Directly
 
 ``` r
 library(gaezv5)
@@ -81,12 +105,15 @@ niger_timeseries <- combine_gaez_batch(
 
 ## Main Functions
 
-### New in v0.1.2 ⭐
+### Data Preview & Exploration
+
+-   **`preview_gaez_map()`** - Interactive map previews via REST API (no download needed)
+
+### Data Loading & Processing
 
 -   **`load_gaez_data()`** - One-function workflow: download + load into R
 -   **`combine_gaez_batch()`** - Combine batch results into multi-layer rasters
 -   **`get_country_boundary()`** - Retrieve country boundaries for cropping
--   **Country cropping** - Automatic spatial subsetting in `load_gaez_data()` and `combine_gaez_batch()`
 
 ### Data Discovery
 
@@ -342,27 +369,23 @@ data <- load_gaez_data(
 
 ## Planned Features
 
-### Interactive Data Preview (Coming in v0.2.0)
+### Additional REST API Functions (Coming in v0.2.1)
 
-Query and preview GAEZ maps without downloading full datasets via ArcGIS ImageServer REST API:
+Expand REST API capabilities beyond map previews:
 
 **Functions in development**:
-- `preview_gaez_map()` - Visual inspection of maps before download
 - `query_gaez_value()` - Extract pixel values at specific coordinates
 - `sample_gaez_data()` - Batch sampling at multiple locations for validation
 - `get_gaez_stats()` - Regional summary statistics without processing large files
 
 **Benefits**:
-- 100-300x faster for exploratory analysis
-- Significant bandwidth savings (preview: ~100 KB vs. full dataset: ~800 MB)
-- Perfect for model validation and quick assessments
-- Interactive workflows for teaching and demonstrations
+- Point-based data extraction without downloading full rasters
+- Perfect for model validation at field trial locations
+- Quick country/regional statistics for reports
+- Lightweight API queries instead of large file downloads
 
 **Example usage** (planned):
 ```r
-# Preview map before downloading
-preview_gaez_map(crop = "MZE", time_period = "FP4160")
-
 # Extract values at field trial locations
 coords <- data.frame(lon = c(2.1, 3.5), lat = c(13.5, 14.2))
 values <- query_gaez_value(crop = "MZE", coordinates = coords)
@@ -402,7 +425,15 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 
 ## Version History
 
-### v0.1.2 (Development) - Country Cropping Release
+### v0.2.0 - Interactive Map Previews via REST API
+
+-   🗺️ NEW: `preview_gaez_map()` - Interactive leaflet maps without downloading full datasets
+-   ⚡ 100-300x faster data exploration via FAO ImageServer REST API
+-   🌍 Support for global, country-level, and custom bounding box previews
+-   🎨 Automatic color scaling with 10-class diverging palettes
+-   📦 Added `leaflet` dependency for interactive maps
+
+### v0.1.2 - Country Cropping Release
 
 -   ⭐ NEW: `load_gaez_data()` - One-function download + load workflow
 -   ⭐ NEW: `combine_gaez_batch()` - Multi-layer raster combination
@@ -446,4 +477,4 @@ See [NEWS.md](NEWS.md) for complete changelog.
 
 ------------------------------------------------------------------------
 
-**Status**: Active Development \| **Version**: 0.1.2 \| **Last Updated**: 2025-10-07
+**Status**: Active Development \| **Version**: 0.2.0 \| **Last Updated**: 2025-10-17

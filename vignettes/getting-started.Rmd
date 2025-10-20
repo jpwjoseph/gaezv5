@@ -87,6 +87,42 @@ plot(niger_maize, main = "Niger Maize Yield")
 # Global: ~800 MB, Niger: ~8 MB (100x reduction!)
 ```
 
+### Preview Data Without Downloading (NEW in v0.2.0)
+
+Explore data interactively before committing to downloads:
+
+```{r}
+# Interactive leaflet map preview (no download needed!)
+preview_gaez_map(
+  variable = "RES05-YX",   # Attainable yield
+  crop = "wheat",
+  time_period = "FP4160",  # 2041-2060
+  ssp = "SSP370"
+)
+
+# Country-level preview
+preview_gaez_map(
+  variable = "RES05-YX",
+  crop = "maize",
+  time_period = "HP0120",
+  country = "China"
+)
+
+# Custom region preview
+preview_gaez_map(
+  variable = "RES05-YX",
+  crop = "rice",
+  bbox = c(68, 6, 97, 36),  # India region (xmin, ymin, xmax, ymax)
+  time_period = "FP4160"
+)
+
+# Benefits:
+# - 100-300x faster than downloading full datasets
+# - ~100 KB preview vs ~800 MB full dataset
+# - Perfect for teaching, validation, and quick exploration
+# - Interactive maps with zoom and pan controls
+```
+
 ## Core Workflow
 
 ### 1. Discover Available Data
@@ -768,4 +804,4 @@ citation("gaezv5")
 
 ------------------------------------------------------------------------
 
-**Package Version**: 0.1.2 **Last Updated**: `r Sys.Date()`
+**Package Version**: 0.2.0 **Last Updated**: `r Sys.Date()`

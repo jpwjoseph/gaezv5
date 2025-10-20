@@ -1288,8 +1288,12 @@ load_gaez_data <- function(variable = "RES05-YX",
             )
           }
 
-          # Save cropped raster
-          terra::writeRaster(raster, cropped_file_path, overwrite = TRUE)
+          # Save cropped raster with proper datatype to preserve float values
+          # FLT4S = 32-bit signed float - preserves GAEZ yield/suitability values
+          terra::writeRaster(raster, cropped_file_path,
+                            overwrite = TRUE,
+                            datatype = "FLT4S",
+                            gdal = c("COMPRESS=DEFLATE", "PREDICTOR=2"))
 
           # Update download result metadata
           download_result$file_path <- cropped_file_path

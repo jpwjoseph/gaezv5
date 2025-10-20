@@ -1,4 +1,100 @@
-# gaezv5 0.1.2 (Development)
+# gaezv5 0.2.0
+
+## New Features
+
+### Interactive Map Previews via REST API ⭐
+
+* **`preview_gaez_map()`** - New function for fast, interactive data visualization without downloading
+  - Creates interactive leaflet maps using FAO ImageServer REST API
+  - 100-300x faster than downloading full datasets for exploration
+  - Supports global, country-level, and custom bounding box extents
+  - Automatic color scaling with 10-class diverging palettes
+  - Display in Positron and RStudio Viewer, browser, or save as HTML widget
+  - Bandwidth-efficient: ~100 KB preview vs ~800 MB full dataset
+
+* **REST API Infrastructure** (internal functions)
+  - `build_imageserver_url()` - Smart theme-to-service mapping (res01-res07)
+  - `fetch_imageserver_tile()` - Downloads preview tiles from ImageServer
+  - `check_imageserver_availability()` - Validates REST API access for themes
+  - Proper handling of ImageServer georeferencing and extent management
+  - Automatic bbox coordinate transformation (terra format ↔ ImageServer format)
+
+### Use Cases
+
+The new preview function is ideal for:
+- Quick data exploration before committing to large downloads
+- Teaching and demonstrations with interactive maps
+- Model validation by visual inspection
+- Verifying spatial coverage for regions of interest
+- Comparing scenarios side-by-side in reports
+
+### Examples
+
+```r
+# Global preview
+preview_gaez_map(
+  variable = "RES05-YX",
+  crop = "wheat",
+  time_period = "FP4160",
+  ssp = "SSP370"
+)
+
+# Country-level preview
+preview_gaez_map(
+  variable = "RES05-YX",
+  crop = "maize",
+  time_period = "HP0120",
+  country = "China"
+)
+```
+
+## Changes
+
+* **Added leaflet to Imports**
+  - Required for interactive map visualization
+  - Version: leaflet (>= 2.1.0)
+
+* **ImageServer Theme Mapping**
+  - Fixed incorrect theme-to-service mappings (5 out of 6 themes were wrong)
+  - Now uses variable code prefixes as primary mapping method (more reliable)
+  - All 6 themes now accessible via REST API
+
+## Improvements
+
+* **Enhanced year validation** across all functions
+  - `preview_gaez_map()` now validates year ranges (1981-2100) with informative error messages
+  - Consistent validation between preview and download functions
+  - Clear listing of available time periods when years are out of range
+  - Support for interactive period selection when year range spans multiple periods
+
+## Bug Fixes
+
+* Fixed bbox coordinate order transformation for ImageServer API
+  - `terra::ext()` returns (xmin, xmax, ymin, ymax)
+  - ImageServer expects (xmin, ymin, xmax, ymax)
+  - Proper reordering prevents invalid extent errors
+
+* Fixed extent handling for REST API responses
+  - Trust ImageServer georeferencing instead of forcing extents
+  - Prevents "[ext] invalid extent" errors on large countries
+
+* Fixed crop lookup for themes 1 & 2
+  - Made crop lookup conditional (only for themes 3-6)
+  - Prevents errors when previewing non-crop variables
+
+* Fixed data type preservation in country cropping
+  - Added `datatype="FLT4S"` parameter to `writeRaster()`
+  - Prevents float value corruption when caching country-cropped files
+
+## Performance Improvements
+
+* REST API previews are 100-300x faster than full downloads
+* Reduced bandwidth usage: ~100 KB (preview) vs ~800 MB (full dataset)
+* Instant country-level previews via bbox + boundary masking
+
+---
+
+# gaezv5 0.1.2
 
 ## New Features
 
