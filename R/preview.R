@@ -536,7 +536,7 @@ preview_gaez_map <- function(variable = "RES05-YX",
   }
   
   if (verbose) {
-    cat("\n✓ Preview complete!\n\n")
+    cat("\n[OK] Preview complete!\n\n")
     cat("Data info:\n")
     cat("  Dimensions:", paste(dim(raster_data)[1:2], collapse = " x "), "pixels\n")
     cat("  Extent:", paste(round(as.vector(terra::ext(raster_data)), 2), collapse = ", "), "\n")

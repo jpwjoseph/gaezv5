@@ -13,13 +13,16 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = FALSE,
+  purl = FALSE
 )
 ```
 
 ## Introduction
 
-The `gaezv5` package provides comprehensive tools for downloading, processing, and analyzing Global Agro-Ecological Zones (GAEZ) version 5 data from the International Institute for Applied Systems Analysis (IIASA) and the Food and Agriculture Organization (FAO). This vignette covers all major features including data discovery, downloading, country-level cropping, and batch processing.
+The `gaezv5` package provides comprehensive tools for downloading, processing, and analyzing Global Agro-Ecological Zones (GAEZ) version 5 data from the International Institute for Applied Systems Analysis (IIASA) and the Food and Agriculture Organization (FAO).
+
+This vignette covers the main features including data discovery, URL building, downloading, country-level cropping, and batch processing.
 
 ## What is GAEZ v5?
 
@@ -40,319 +43,202 @@ The data is available at high spatial resolution (\~9km) and includes:
 
 ## Installation
 
-```{r}
-# Install from GitHub
-# devtools::install_github("jpwjoseph/gaezv5")
+Install from GitHub:
 
+``` r
+# install.packages("devtools")
+devtools::install_github("jpwjoseph/gaezv5")
 library(gaezv5)
 library(terra)  # For raster operations
 ```
 
-## Quick Start
+------------------------------------------------------------------------
 
-### Simplest Workflow: Load Data Directly
+## Core Workflow: Discovery & Lookup
 
-The fastest way to get GAEZ data into R:
+### 1. List Available Crops
 
-```{r}
+Browse available crops in GAEZ v5 (this works without internet access):
+
+```{r eval=TRUE}
+library(gaezv5)
+
+# List all available crops (theme 4 = attainable yield)
+list_gaez_crops(theme = 4)
+```
+
+```{r eval=TRUE}
+# Filter to cereals only
+list_gaez_crops(crop_group = "cereal", theme = 4)
+```
+
+### 2. Browse All Variables
+
+Explore available variables:
+
+```{r eval=TRUE}
+# Get all variables
+get_gaez_variables()
+```
+
+### 3. List Time Periods & Scenarios
+
+See available time periods, climate models, and scenarios:
+
+```{r eval=TRUE}
+# List available time periods
+list_gaez_scenarios(type = "time_period")
+```
+
+```{r eval=TRUE}
+# List climate models
+list_gaez_scenarios(type = "climate_model")
+```
+
+```{r eval=TRUE}
+# List SSP scenarios
+list_gaez_scenarios(type = "ssp")
+```
+
+### 4. Look Up Specific Codes
+
+Find exact codes using lookup functions (no internet required):
+
+```{r eval=TRUE}
+# Look up crop by name (returns code)
+lookup_gaez_crop("maize", theme = 4)
+```
+
+```{r eval=TRUE}
+# Look up variable
+lookup_gaez_variable("attainable yield")
+```
+
+### 5. Validate Parameter Combinations
+
+Check if parameter combinations are valid:
+
+```{r eval=TRUE}
+# Validate historical period (requires AGERA5 + HIST)
+validation <- validate_climate_ssp("HP0120", NULL, "SSP370")
+print(validation$climate_model)  # Will auto-correct to AGERA5
+print(validation$ssp)             # Will auto-correct to HIST
+```
+
+```{r eval=TRUE}
+# Validate future period (requires GCM + future SSP)
+validation <- validate_climate_ssp("FP4160", "ENSEMBLE", "SSP370")
+print(validation)
+```
+
+------------------------------------------------------------------------
+
+## Building URLs (Works Locally)
+
+Once you know what you want to download, build a URL:
+
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+# Build a download URL
+url <- build_gaez_url(
+  variable = "RES05-YX",
+  crop = "MZE",
+  time_period = "HP0120",
+  climate_model = "AGERA5",
+  ssp = "HIST"
+)
+print(url)
+
+# Check if URL exists
+exists <- check_url_exists(url)
+print(paste("URL exists:", exists))
+```
+
+------------------------------------------------------------------------
+
+## Downloading Data (Requires Internet)
+
+The following functions require internet access to Google Cloud Storage and will only work when NOT_CRAN is set:
+
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
 # Load maize yield data (automatically downloads if needed)
 maize <- load_gaez_data(
-  crop = "MZE",           # Maize crop code
-  time_period = "HP0120"  # 2001-2020
+  crop = "MZE",
+  time_period = "HP0120",
+  climate_model = "AGERA5"
 )
 
-# Plot immediately
-plot(maize, main = "Global Maize Attainable Yield (2001-2020)")
-
-# Get statistics
-mean_yield <- global(maize, "mean", na.rm = TRUE)
-print(paste("Mean global yield:", round(mean_yield, 0), "kg/ha"))
+terra::plot(maize, main = "Global Maize Attainable Yield (2001-2020)")
 ```
 
 ### Load Country-Level Data
 
-Get data for specific countries to reduce file sizes:
+Reduce file sizes dramatically by cropping to country boundaries:
 
-```{r}
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
 # Load Niger maize data (much smaller than global)
 niger_maize <- load_gaez_data(
   crop = "MZE",
   time_period = "HP0120",
-  country = "Niger"  # Automatically crops to country boundary
+  country = "Niger"
 )
 
-plot(niger_maize, main = "Niger Maize Yield")
-
-# File size comparison
-# Global: ~800 MB, Niger: ~8 MB (100x reduction!)
+terra::plot(niger_maize, main = "Niger Maize Yield")
+# File size comparison: Global ~800 MB → Niger ~8 MB (100x reduction!)
 ```
 
-### Preview Data Without Downloading (NEW in v0.2.0)
+### Interactive Map Preview
 
-Explore data interactively before committing to downloads:
+Preview data without downloading full datasets:
 
-```{r}
-# Interactive leaflet map preview (no download needed!)
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+# Interactive leaflet map preview (no full download needed!)
 preview_gaez_map(
-  variable = "RES05-YX",   # Attainable yield
+  variable = "RES05-YX",
   crop = "wheat",
-  time_period = "FP4160",  # 2041-2060
+  time_period = "FP4160",
   ssp = "SSP370"
 )
-
-# Country-level preview
-preview_gaez_map(
-  variable = "RES05-YX",
-  crop = "maize",
-  time_period = "HP0120",
-  country = "China"
-)
-
-# Custom region preview
-preview_gaez_map(
-  variable = "RES05-YX",
-  crop = "rice",
-  bbox = c(68, 6, 97, 36),  # India region (xmin, ymin, xmax, ymax)
-  time_period = "FP4160"
-)
-
-# Benefits:
-# - 100-300x faster than downloading full datasets
-# - ~100 KB preview vs ~800 MB full dataset
-# - Perfect for teaching, validation, and quick exploration
-# - Interactive maps with zoom and pan controls
 ```
 
-## Core Workflow
+### Batch Download Multiple Datasets
 
-### 1. Discover Available Data
-
-Explore available crops and variables:
-
-```{r}
-# List all available crops (theme 4 = attainable yield)
-crops <- list_gaez_crops(theme = 4)
-head(crops)
-
-# Filter to cereals only
-cereals <- list_gaez_crops(crop_group = "cereal", theme = 4)
-print(cereals[, c("gaez_crop_code", "name")])
-
-# Browse all variables
-head(gaez_variables[, c("variable_code", "variable_name", "theme_name")])
-```
-
-### 2. Look Up Specific Codes
-
-Find exact codes using lookup functions:
-
-```{r}
-# Look up crop by name (returns code)
-lookup_gaez_crop("pearl millet", theme = 4)  # Returns "PMI"
-
-# Look up variable
-yield_var <- lookup_gaez_variable("attainable yield")
-print(yield_var$variable_code)  # Returns "RES05-YX"
-```
-
-### 3. Download and Load Data
-
-**Method 1: Load directly (recommended)**
-
-```{r}
-# One function does it all: download + load
-wheat <- load_gaez_data(
-  crop = "WHE",
-  time_period = "HP0120",
-  climate_model = "AGERA5"
-)
-```
-
-**Method 2: Download then load separately**
-
-```{r}
-# Download only
-result <- download_gaez_dataset(
-  crop = "WHE",
-  time_period = "HP0120",
-  climate_model = "AGERA5"
-)
-
-# Load separately
-if (result$success) {
-  wheat <- rast(result$file_path)
-}
-```
-
-### 4. Work with Loaded Data
-
-```{r}
-# Basic operations
-print(wheat)                              # Raster info
-plot(wheat, main = "Wheat Yield")         # Visualize
-global(wheat, "mean", na.rm = TRUE)       # Statistics
-hist(wheat, main = "Yield Distribution")  # Distribution
-
-# Crop to extent
-region <- ext(0, 20, 10, 30)  # Lon/lat bounds
-wheat_region <- crop(wheat, region)
-
-# Extract values at points
-points <- data.frame(lon = c(2, 5, 8), lat = c(13, 15, 12))
-points_vect <- vect(points, geom = c("lon", "lat"), crs = "EPSG:4326")
-values <- extract(wheat, points_vect)
-```
-
-## Country-Level Analysis
-
-### Load Data for Specific Countries
-
-```{r}
-# By country name
-niger_data <- load_gaez_data(
-  crop = "SOR",      # Sorghum
-  time_period = "HP0120",
-  country = "Niger"  # Automatically crops and masks
-)
-
-# By ISO3 code (faster, no ambiguity)
-burkina_data <- load_gaez_data(
-  crop = "SOR",
-  time_period = "HP0120",
-  country = "BFA"  # Burkina Faso ISO3 code
-)
-
-# Case-insensitive
-nigeria_data <- load_gaez_data(
-  crop = "SOR",
-  time_period = "HP0120",
-  country = "nigeria"  # Works!
-)
-```
-
-### Country Cropping Options
-
-```{r}
-# Option 1: Mask to exact boundary (default)
-data1 <- load_gaez_data(
-  crop = "MZE",
-  country = "Niger",
-  mask_to_boundary = TRUE  # Values outside boundary = NA
-)
-
-# Option 2: Crop to extent only (faster)
-data2 <- load_gaez_data(
-  crop = "MZE",
-  country = "Niger",
-  mask_to_boundary = FALSE  # Rectangular crop only
-)
-
-# Option 3: Delete global file to save space
-data3 <- load_gaez_data(
-  crop = "MZE",
-  country = "Niger",
-  keep_global = FALSE  # Removes global file after cropping
-)
-```
-
-### Get Country Boundaries
-
-```{r}
-# Retrieve boundary for plotting or custom analysis
-niger_boundary <- get_country_boundary("Niger")
-plot(niger_boundary, main = "Niger Boundary")
-
-# Get provincial boundaries (admin level 1)
-provinces <- get_country_boundary("Niger", level = 1)
-plot(provinces, main = "Niger Provinces")
-
-# Use in analysis
-data <- load_gaez_data(crop = "MZE", country = provinces)
-```
-
-## Batch Operations
-
-### Batch Download Multiple Files
-
-```{r}
-# Download multiple crops
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+# Download multiple crops efficiently
 results <- batch_download_gaez_datasets(
-  crops = c("MZE", "WHE", "SOR", "PMI"),  # Maize, wheat, sorghum, millet
+  crops = c("MZE", "WHE", "SOR"),
   time_period = "HP0120",
   climate_model = "AGERA5",
   verbose = FALSE
 )
 
-# Check success
-successes <- sum(sapply(results, function(x) x$success))
-print(paste(successes, "/", length(results), "succeeded"))
+# Check success rate
+success_count <- sum(sapply(results, function(x) x$success))
+print(paste(success_count, "out of", length(results), "downloads succeeded"))
 ```
 
 ### Combine Batch Results
 
-```{r}
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
 # Download time series
 time_results <- batch_download_gaez_datasets(
   crops = "MZE",
-  time_periods = c("HP0120", "FP4160", "FP6180"),  # 3 time periods
+  time_periods = c("HP0120", "FP4160", "FP6180"),
+  parallel = FALSE,
   verbose = FALSE
 )
 
 # Combine into single multi-layer raster
 timeseries <- combine_gaez_batch(time_results)
 print(timeseries)  # Shows 3 layers
-
-# Access individual layers
-plot(timeseries[[1]], main = "2001-2020")
-plot(timeseries[[2]], main = "2041-2060")
-plot(timeseries[[3]], main = "2061-2080")
-
-# Calculate changes
-change1 <- timeseries[[2]] - timeseries[[1]]
-change2 <- timeseries[[3]] - timeseries[[2]]
-plot(c(change1, change2), main = c("Change 1", "Change 2"))
 ```
 
-### Export to NetCDF
-
-```{r}
-# Combine and export to NetCDF
-combined <- combine_gaez_batch(
-  time_results,
-  output_file = "maize_timeseries.nc",
-  format = "netcdf"
-)
-
-# Load NetCDF later
-timeseries <- rast("maize_timeseries.nc")
-```
-
-### Country-Level Batch Operations
-
-```{r}
-# Download global, combine and crop to country
-results <- batch_download_gaez_datasets(
-  crops = c("MZE", "WHE", "RIC", "SOR"),
-  time_period = "HP0120"
-)
-
-# Combine with country cropping
-niger_crops <- combine_gaez_batch(
-  results,
-  country = "Niger",
-  output_file = "niger_crops.nc",
-  keep_global = FALSE  # Save disk space
-)
-
-# Result is smaller multi-crop raster for Niger only
-plot(niger_crops)
-```
+------------------------------------------------------------------------
 
 ## Common Use Cases
 
-### 1. Historical vs Future Comparison
+### Historical vs Future Comparison
 
-```{r}
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
 # Load historical
 hist <- load_gaez_data(
   crop = "WHE",
@@ -371,20 +257,17 @@ future <- load_gaez_data(
 # Calculate change
 change <- future - hist
 plot(change, main = "Wheat Yield Change: 2041-2060 vs 2001-2020")
-
-# Statistics
-mean_change <- global(change, "mean", na.rm = TRUE)
-print(paste("Mean change:", round(mean_change, 1), "kg/ha"))
 ```
 
-### 2. Scenario Comparison
+### Scenario Comparison
 
-```{r}
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
 # Download multiple scenarios
 scenario_results <- batch_download_gaez_datasets(
   crops = "MZE",
   time_period = "FP4160",
-  ssps = c("SSP126", "SSP370", "SSP585")  # Low, medium, high emissions
+  ssps = c("SSP126", "SSP370", "SSP585"),  # Low, medium, high emissions
+  parallel = FALSE
 )
 
 # Combine with custom names
@@ -395,72 +278,13 @@ scenarios <- combine_gaez_batch(
 
 # Compare scenarios
 plot(scenarios)
-
-# Difference between scenarios
-diff_high_low <- scenarios[[3]] - scenarios[[1]]
-plot(diff_high_low, main = "Impact of Emissions (SSP585 vs SSP126)")
 ```
 
-### 3. Irrigated vs Rainfed
+### Country-Level Analysis
 
-```{r}
-# Compare water management
-water_results <- batch_download_gaez_datasets(
-  crops = "RIC",  # Rice
-  time_period = "HP0120",
-  water_management_levels = c("HRLM", "HILM")  # Rainfed vs Irrigated
-)
-
-water_comparison <- combine_gaez_batch(
-  water_results,
-  layer_names = c("Rainfed", "Irrigated")
-)
-
-# Calculate irrigation benefit
-irrigation_gain <- water_comparison[[2]] - water_comparison[[1]]
-plot(irrigation_gain, main = "Rice Yield Gain from Irrigation")
-```
-
-### 4. Country Time Series Analysis
-
-```{r}
-# Download time series for country
-time_results <- batch_download_gaez_datasets(
-  crops = "MZE",
-  time_periods = c("HP0120", "FP4160", "FP6180")
-)
-
-# Combine with country cropping
-niger_timeseries <- combine_gaez_batch(
-  time_results,
-  country = "Niger",
-  output_file = "niger_maize_timeseries.nc"
-)
-
-# Analyze temporal trends
-layer1 <- niger_timeseries[[1]]  # 2001-2020
-layer2 <- niger_timeseries[[2]]  # 2041-2060
-layer3 <- niger_timeseries[[3]]  # 2061-2080
-
-# Mean yields by period
-yields <- c(
-  global(layer1, "mean", na.rm = TRUE)[[1]],
-  global(layer2, "mean", na.rm = TRUE)[[1]],
-  global(layer3, "mean", na.rm = TRUE)[[1]]
-)
-
-# Plot trend
-periods <- c("2001-2020", "2041-2060", "2061-2080")
-barplot(yields, names.arg = periods,
-        main = "Niger Maize Yield Projections",
-        ylab = "Yield (kg/ha)")
-```
-
-### 5. Multi-Country Comparison
-
-```{r}
-# Compare multiple countries
-countries <- c("Niger", "Nigeria", "Burkina Faso", "Mali")
+```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+# Download for multiple countries
+countries <- c("Niger", "Nigeria", "Burkina Faso")
 country_data <- list()
 
 for (country in countries) {
@@ -478,147 +302,11 @@ mean_yields <- sapply(country_data, function(r) {
 })
 
 # Plot comparison
-barplot(mean_yields, main = "Sorghum Yield by Country (2041-2060)",
+barplot(mean_yields, main = "Sorghum Yield by Country",
         ylab = "Yield (kg/ha)", las = 2, col = "lightblue")
 ```
 
-### 6. Provincial Analysis
-
-```{r}
-# Get provincial boundaries
-provinces <- get_country_boundary("Niger", level = 1)
-
-# Load data
-data <- load_gaez_data(
-  crop = "PMI",  # Pearl millet
-  time_period = "HP0120",
-  country = provinces
-)
-
-# Extract mean yield by province
-province_yields <- extract(data, provinces, fun = mean, na.rm = TRUE)
-provinces$yield <- province_yields[, 2]
-
-# Map yields by province
-plot(provinces, "yield", main = "Pearl Millet Yield by Province")
-```
-
-## File Management
-
-### List Downloaded Files
-
-```{r}
-# View all downloaded files
-files <- list_downloaded_files()
-print(files[, c("filename", "size_mb", "modified")])
-
-# Calculate total storage
-total_gb <- sum(files$size_mb, na.rm = TRUE) / 1024
-print(paste("Total:", round(total_gb, 2), "GB"))
-
-# Filter to specific crop
-maize_files <- files[grepl("MZE", files$filename), ]
-print(maize_files)
-```
-
-### Verify File Integrity
-
-```{r}
-# Check if a file is valid
-is_valid <- verify_file_integrity(files$path[1])
-print(paste("File valid:", is_valid))
-
-# Verify all files
-all_valid <- sapply(files$path, verify_file_integrity)
-print(paste(sum(all_valid), "out of", length(all_valid), "files are valid"))
-```
-
-### Clear Cache
-
-```{r}
-# View cache directory
-cache_dir <- get_download_cache()
-print(paste("Cache location:", cache_dir))
-
-# Clear all cached files (use with caution!)
-# clear_download_cache(confirm = TRUE)
-
-# Or clear specific pattern
-# clear_download_cache(pattern = ".*MZE.*", confirm = TRUE)
-```
-
-## Advanced Features
-
-### Load with Metadata
-
-```{r}
-# Get both raster and download information
-result <- load_gaez_data(
-  crop = "WHE",
-  time_period = "HP0120",
-  return_metadata = TRUE
-)
-
-# Access raster
-wheat <- result$raster
-plot(wheat)
-
-# Access metadata
-print(result$metadata$file_path)
-print(result$metadata$file_size)
-print(result$metadata$url)
-```
-
-### Build Custom URLs
-
-```{r}
-# Construct URL manually
-url <- build_gaez_url(
-  variable = "RES05-YX",
-  crop = "SOR",
-  time_period = "FP4160",
-  climate_model = "MRI-ESM2-0",  # Specific GCM
-  ssp = "SSP370",
-  water_management_level = "HILM"
-)
-
-print(url)
-
-# Check if URL exists
-if (check_url_exists(url)) {
-  print("URL is valid")
-}
-```
-
-### Using Year Ranges
-
-```{r}
-# Specify years instead of time period codes
-data <- load_gaez_data(
-  crop = "MZE",
-  start_year = 2041,
-  end_year = 2060,
-  ssp = "SSP370"
-)
-# Automatically converts to time_period = "FP4160"
-```
-
-### Validate Climate/SSP Combinations
-
-```{r}
-# Check if combination is valid
-validation <- validate_climate_ssp(
-  time_period = "FP4160",
-  climate_model = "ENSEMBLE",
-  ssp = "SSP370"
-)
-
-if (validation$valid) {
-  print("Valid combination")
-} else {
-  print(validation$message)
-}
-```
+------------------------------------------------------------------------
 
 ## Understanding GAEZ Codes
 
@@ -664,144 +352,34 @@ if (validation$valid) {
 | PMI  | Pearl millet | COW  | Cowpea  |
 | SUN  | Sunflower    | SOY  | Soybean |
 
-## Best Practices
-
-### 1. Use Country Cropping for Regional Studies
-
-```{r}
-# Don't download global if you only need one country
-# BAD: Large file, slow
-# global <- load_gaez_data(crop = "MZE")
-# niger <- crop(global, niger_boundary)
-
-# GOOD: Direct country download
-niger <- load_gaez_data(crop = "MZE", country = "Niger")
-```
-
-### 2. Use ISO3 Codes to Avoid Ambiguity
-
-```{r}
-# Use ISO3 codes for clarity
-data <- load_gaez_data(crop = "MZE", country = "NER")  # Niger
-
-# Instead of potentially ambiguous names
-# data <- load_gaez_data(crop = "MZE", country = "niger")  # Could match Niger/Nigeria
-```
-
-### 3. Batch Operations with Parallel Downloads
-
-```{r}
-# Download multiple files efficiently
-results <- batch_download_gaez_datasets(
-  crops = c("MZE", "WHE", "RIC", "SOR"),
-  time_periods = c("HP0120", "FP4160"),
-  parallel = TRUE  # Uses parallel downloads (default)
-)
-```
-
-### 4. Clean Up Global Files When Using Country Data
-
-```{r}
-# Save storage by deleting global files
-data <- load_gaez_data(
-  crop = "MZE",
-  country = "Niger",
-  keep_global = FALSE  # Deletes large global file, keeps small Niger file
-)
-```
-
-### 5. Export Large Multi-Layer Datasets to NetCDF
-
-```{r}
-# NetCDF is more efficient for multi-layer data
-combined <- combine_gaez_batch(
-  results,
-  output_file = "timeseries.nc",
-  format = "netcdf"  # Compressed storage
-)
-```
+------------------------------------------------------------------------
 
 ## Getting Help
 
-```{r}
+```{r eval=TRUE}
 # View examples
 show_gaez_examples()
+```
 
+```{r eval=FALSE}
 # Function help
 ?load_gaez_data
+?download_gaez_dataset
 ?combine_gaez_batch
-?get_country_boundary
-?batch_download_gaez_datasets
+?preview_gaez_map
 
 # Browse all documentation
 help(package = "gaezv5")
 ```
 
-## Troubleshooting
-
-### Country Not Found
-
-If you get "Country not found" error:
-
-```{r}
-# Check available countries
-library(geodata)
-codes <- country_codes()
-head(codes[, c("NAME", "ISO3")], 20)
-
-# Use exact ISO3 code
-data <- load_gaez_data(crop = "MZE", country = "NER")
-```
-
-### Large Files / Out of Memory
-
-For large datasets:
-
-```{r}
-# 1. Use country cropping
-data <- load_gaez_data(crop = "MZE", country = "Niger")  # Much smaller
-
-# 2. Process in chunks
-r <- rast("large_file.tif")
-chunk1 <- crop(r, ext(0, 10, 10, 20))  # Process region by region
-```
-
-### Download Failures
-
-If downloads fail:
-
-```{r}
-# 1. Check internet connection
-check_url_exists(build_gaez_url(crop = "MZE", time_period = "HP0120"))
-
-# 2. Try again (sometimes server is busy)
-result <- download_gaez_dataset(crop = "MZE", time_period = "HP0120")
-
-# 3. Check file integrity
-verify_file_integrity(result$file_path)
-```
-
-If errors persist, please submit an issue on the gaezv5 R package Github repository.
+------------------------------------------------------------------------
 
 ## Further Reading
 
 -   [GAEZ v5 Portal](https://gaez.fao.org/)
--   [GAEZ v5 Model Documentation](https://github.com/un-fao/gaezv5/wiki)
 -   [Package GitHub](https://github.com/jpwjoseph/gaezv5)
 -   [Report Issues](https://github.com/jpwjoseph/gaezv5/issues)
 
-## Citation
-
-When using GAEZ v5 data, please cite:
-
-> FAO & IIASA. 2025. Global Agro-ecological Zoning version 5 (GAEZ v5) Model Documentation. https://github.com/un-fao/gaezv5/wiki
-
-For the gaezv5 R package:
-
-```{r}
-citation("gaezv5")
-```
-
 ------------------------------------------------------------------------
 
-**Package Version**: 0.2.0 **Last Updated**: `r Sys.Date()`
+**Package Version**: 0.2.0 \| **Last Updated**: `r Sys.Date()`

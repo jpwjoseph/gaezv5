@@ -28,7 +28,7 @@
 #'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 #'   to automatically select the best match without prompting.
 #'
-#' @return A list with the following elements:
+#' @returns A list with the following elements:
 #'   \itemize{
 #'     \item \code{success}: Logical indicating if download succeeded
 #'     \item \code{file_path}: Full path to the downloaded file
@@ -391,7 +391,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #'   download_dir, overwrite, verbose. Note: time_period, ssp, and climate_model
 #'   should NOT be passed via ... when using the vectorized parameters above.
 #'
-#' @return A named list of download results, one for each combination. Each
+#' @returns A named list of download results, one for each combination. Each
 #'   element is the result object from \code{download_gaez_dataset()}.
 #'
 #' @details
@@ -1034,7 +1034,7 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 #'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 #'   to automatically select the best match without prompting.
 #'
-#' @return If \code{return_metadata = FALSE} (default), returns a terra SpatRaster
+#' @returns If \code{return_metadata = FALSE} (default), returns a terra SpatRaster
 #'   object. If \code{return_metadata = TRUE}, returns a list with two elements:
 #'   \itemize{
 #'     \item \code{raster}: The terra SpatRaster object

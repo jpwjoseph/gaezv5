@@ -1,6 +1,6 @@
 Package: gaezv5
 Type: Package
-Title: Download and Process GAEZ v5 Agricultural Data
+Title: Download and Process GAEZ V5 Agricultural Data
 Version: 0.2.0
 Authors@R:
     person("Julian", "Joseph",
@@ -21,7 +21,7 @@ Encoding: UTF-8
 URL: https://github.com/jpwjoseph/gaezv5
 BugReports: https://github.com/jpwjoseph/gaezv5/issues
 Depends:
-    R (>= 4.0.0)
+    R (>= 4.1.0)
 Imports:
     dplyr (>= 1.0.0),
     httr (>= 1.4.0),

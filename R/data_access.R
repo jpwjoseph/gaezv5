@@ -3,7 +3,7 @@
 #' Returns a table containing information about all GAEZ v5 variables across
 #' 6 themes. Use this to discover available data types and their codes.
 #'
-#' @return A tibble with 133 rows and 7 columns:
+#' @returns A tibble with 133 rows and 7 columns:
 #' \describe{
 #'   \item{theme_number}{Theme number (1-6)}
 #'   \item{theme_name}{Descriptive theme name}
@@ -40,7 +40,7 @@ get_gaez_variables <- function() {
 #' @param theme Integer - Optional theme filter (3, 4, 5, or 6).
 #'   If NULL (default), returns all crops across all themes.
 #'
-#' @return A tibble with crop information:
+#' @returns A tibble with crop information:
 #' \describe{
 #'   \item{gaez_crop_code}{Crop code (e.g., "MZE", "MAIZ")}
 #'   \item{name}{Full crop name}
@@ -86,7 +86,7 @@ get_gaez_crops <- function(theme = NULL) {
 #' returns the full scenarios table. Users should use \code{\link{list_gaez_scenarios}}
 #' instead, which provides filtered, user-friendly views of scenario information.
 #'
-#' @return A tibble with multiple types of scenario information including:
+#' @returns A tibble with multiple types of scenario information including:
 #' \itemize{
 #'   \item Time periods (HP8100, HP0120, FP2140, FP4160, FP6180, FP8100)
 #'   \item Climate models (AGERA5, ENSEMBLE, GFDL-ESM4, etc.)
