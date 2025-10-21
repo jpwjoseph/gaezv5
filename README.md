@@ -65,7 +65,7 @@ maize <- load_gaez_data(
   time_period = "HP0120"  # 2001-2020
 )
 
-plot(maize, main = "Global Maize Yield (2001-2020)")
+terra:plot(maize, main = "Global Maize Yield (2001-2020)")
 ```
 
 ### Load Country-Level Data
@@ -80,7 +80,7 @@ niger_maize <- load_gaez_data(
   country = "Niger"  # Automatically crops to country boundary
 )
 
-plot(niger_maize, main = "Niger Maize Yield")
+terra::plot(niger_maize, main = "Niger Maize Yield")
 # Global: ~800 MB → Niger: ~8 MB (100x reduction!)
 ```
 
