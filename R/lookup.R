@@ -186,7 +186,7 @@ lookup_gaez_variable <- function(user_input) {
 #'
 #' @export
 #' @importFrom dplyr filter mutate select n arrange desc
-#' @importFrom stringr str_to_upper str_to_lower str_detect
+#' @importFrom stringr str_to_upper str_to_lower str_detect str_starts
 lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
   if (missing(crop_name) || is.null(crop_name) || crop_name == "") {
     stop("Please provide a crop name to search for.", call. = FALSE)
