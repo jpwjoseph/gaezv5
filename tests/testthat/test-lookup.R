@@ -60,3 +60,27 @@ test_that("lookup_gaez_crop fails with invalid theme", {
 test_that("lookup_gaez_crop fails with empty input", {
   expect_error(lookup_gaez_crop("", theme = 4), "provide a crop name")
 })
+
+test_that("lookup_gaez_crop prioritizes names starting with search term", {
+  # In theme 3, there are multiple maize variants:
+  # - "Maize (best of lmze, hmze and tmze)" starts with "maize"
+  # - "Silage maize" contains "maize" but not at start
+  # The fix ensures "Maize (...)" is selected over "Silage maize"
+  options(gaez_testing_mode = TRUE)
+  result <- lookup_gaez_crop("maize", theme = 3, interactive = FALSE)
+
+  expect_type(result, "character")
+  expect_equal(result, "MAIZ")  # Should be MAIZ, not MZSI (Silage maize)
+
+  options(gaez_testing_mode = NULL)
+})
+
+test_that("lookup_gaez_crop works with theme 3 wheat", {
+  options(gaez_testing_mode = TRUE)
+  result <- lookup_gaez_crop("wheat", theme = 3, interactive = FALSE)
+
+  expect_type(result, "character")
+  expect_equal(result, "WHEA")  # Should be WHEA (Wheat the better of...)
+
+  options(gaez_testing_mode = NULL)
+})
