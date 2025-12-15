@@ -149,8 +149,11 @@ lookup_gaez_variable <- function(user_input) {
 #' When multiple crops match the input, they are ranked by quality:
 #' \enumerate{
 #'   \item **Exact matches** (case-insensitive): "wheat" matches "Wheat" exactly
-#'   \item **Word-boundary matches**: "wheat" starts the word "Wheat" (higher priority
-#'     than matching within "Buckwheat")
+#'   \item **Name starts with search term**: "Maize (best of...)" is prioritized over
+#'     "Silage maize" when searching for "maize", because the name starts with the
+#'     search term
+#'   \item **Word-boundary matches**: "wheat" starts a word in "Buckwheat" (but with
+#'     lower priority than names starting with the search term)
 #'   \item **String distance**: Closest match using Levenshtein distance
 #' }
 #'
@@ -183,7 +186,7 @@ lookup_gaez_variable <- function(user_input) {
 #'
 #' @export
 #' @importFrom dplyr filter mutate select n arrange desc
-#' @importFrom stringr str_to_upper str_to_lower str_detect
+#' @importFrom stringr str_to_upper str_to_lower str_detect str_starts
 lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
   if (missing(crop_name) || is.null(crop_name) || crop_name == "") {
     stop("Please provide a crop name to search for.", call. = FALSE)
@@ -233,6 +236,8 @@ lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
     mutate(
       # Is it an exact match (case-insensitive)?
       exact_match = str_to_lower(name) == crop_name_lower,
+      # Does the name START with the search term? (higher priority than word boundary)
+      name_starts_with = str_starts(str_to_lower(name), crop_name_lower),
       # Does the input start a word in the name (word boundary)?
       word_start_match = str_detect(
         str_to_lower(name),
@@ -243,8 +248,8 @@ lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
         adist(crop_name_lower, x)[1, 1]
       })
     ) |>
-    # Sort by match quality: exact > word_start > string distance
-    arrange(desc(exact_match), desc(word_start_match), string_dist)
+    # Sort by match quality: exact > name_starts_with > word_start > string distance
+    arrange(desc(exact_match), desc(name_starts_with), desc(word_start_match), string_dist)
 
   if (nrow(name_matches) == 1) {
     message(
@@ -271,6 +276,8 @@ lookup_gaez_crop <- function(crop_name, theme = 4, interactive = TRUE) {
     # Provide informative message about why this was selected
     if (selected_crop$exact_match) {
       match_reason <- "exact match"
+    } else if (selected_crop$name_starts_with) {
+      match_reason <- paste0("name starts with search term (distance: ", selected_crop$string_dist, ")")
     } else if (selected_crop$word_start_match) {
       match_reason <- paste0("best word-boundary match (distance: ", selected_crop$string_dist, ")")
     } else {

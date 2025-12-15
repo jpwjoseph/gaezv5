@@ -450,9 +450,10 @@ map_time_period_to_year <- function(time_period) {
   period_info <- gaez_scenarios |>
     dplyr::filter(time_period == !!time_period) |>
     dplyr::select(start_year, end_year) |>
-    dplyr::first()
+    dplyr::slice(1)
 
-  if (is.null(period_info) || nrow(period_info) == 0) {
+  # Check if we got valid data (row exists and has non-NA values)
+  if (nrow(period_info) == 0 || is.na(period_info$start_year)) {
     return(NA_character_)
   }
 
