@@ -149,8 +149,11 @@ lookup_gaez_variable <- function(user_input) {
 #' When multiple crops match the input, they are ranked by quality:
 #' \enumerate{
 #'   \item **Exact matches** (case-insensitive): "wheat" matches "Wheat" exactly
-#'   \item **Word-boundary matches**: "wheat" starts the word "Wheat" (higher priority
-#'     than matching within "Buckwheat")
+#'   \item **Name starts with search term**: "Maize (best of...)" is prioritized over
+#'     "Silage maize" when searching for "maize", because the name starts with the
+#'     search term
+#'   \item **Word-boundary matches**: "wheat" starts a word in "Buckwheat" (but with
+#'     lower priority than names starting with the search term)
 #'   \item **String distance**: Closest match using Levenshtein distance
 #' }
 #'
