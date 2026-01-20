@@ -400,7 +400,7 @@ list_gaez_scenarios <- function(type = "time_period") {
 #' Country boundaries are downloaded from the GADM database via `geodata::gadm()`:
 #' \itemize{
 #'   \item Downloads are cached locally to avoid repeated requests
-#'   \item Default cache location: [package_cache]/GADM/
+#'   \item Default cache location: package_cache/GADM/
 #'   \item Boundaries are in WGS84 coordinate system (EPSG:4326)
 #' }
 #'

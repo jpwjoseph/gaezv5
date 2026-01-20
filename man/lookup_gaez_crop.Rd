@@ -38,8 +38,11 @@ option based on exact matches, word boundaries, and string distance.
 When multiple crops match the input, they are ranked by quality:
 \enumerate{
 \item \strong{Exact matches} (case-insensitive): "wheat" matches "Wheat" exactly
-\item \strong{Word-boundary matches}: "wheat" starts the word "Wheat" (higher priority
-than matching within "Buckwheat")
+\item \strong{Name starts with search term}: "Maize (best of...)" is prioritized over
+"Silage maize" when searching for "maize", because the name starts with the
+search term
+\item \strong{Word-boundary matches}: "wheat" starts a word in "Buckwheat" (but with
+lower priority than names starting with the search term)
 \item \strong{String distance}: Closest match using Levenshtein distance
 }
 }

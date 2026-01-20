@@ -65,6 +65,8 @@
 #' @importFrom tools file_ext
 #' @importFrom tidyr tribble
 #' @importFrom purrr map
+#' @importFrom grDevices dev.off hcl.colors png
+#' @importFrom utils adist download.file head
 NULL
 
 

@@ -28,7 +28,7 @@ devtools::install_github("jpwjoseph/gaezv5")
 
 ## Quick Start
 
-Consult the vignette for a comprehensive tutorial: [**Getting Started Vignette**](vignettes/getting-started.md)
+Consult the vignette for a comprehensive tutorial. After installation, run `browseVignettes("gaezv5")` or `vignette("getting-started", package = "gaezv5")`.
 
 ### Preview Data Before Downloading
 
@@ -231,15 +231,14 @@ GAEZ v5 data is organized into 6 themes:
 
 ### Getting Started
 
--   📖 [**Getting Started Vignette**](vignettes/getting-started.md) - Comprehensive tutorial with all features
+-   📖 **Getting Started Vignette** - Comprehensive tutorial with all features (run `vignette("getting-started", package = "gaezv5")`)
 -   🚀 [**Quick Start Guide**](QUICK_START_COUNTRY_CROPPING.md) - Country cropping quick reference
 -   📋 [**Package Summary**](PACKAGE_SUMMARY.md) - Overview of all functions
 
 ### Advanced Features
 
 -   🌍 [**Country Cropping Guide**](COUNTRY_CROPPING_SUMMARY.md) - Detailed country-level analysis documentation
--   💡 [**Examples**](examples/) - Demonstration scripts
-    -   [Country Cropping Demo](examples/country_cropping_demo.R)
+-   💡 **Examples** - Demonstration scripts available in the package source
 
 ### Reference
 

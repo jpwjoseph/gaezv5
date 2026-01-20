@@ -12,6 +12,7 @@ data/*.tif
 data/*.zip
 data/GAEZ/
 Data/GAEZ/
+inst/extdata/GAEZ/*
 tests/review*
 /doc/
 /Meta/

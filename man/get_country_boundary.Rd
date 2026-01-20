@@ -48,7 +48,7 @@ The function uses \code{geodata::country_codes()} to match country inputs:
 Country boundaries are downloaded from the GADM database via \code{geodata::gadm()}:
 \itemize{
 \item Downloads are cached locally to avoid repeated requests
-\item Default cache location: \link{package_cache}/GADM/
+\item Default cache location: package_cache/GADM/
 \item Boundaries are in WGS84 coordinate system (EPSG:4326)
 }
 }

@@ -127,7 +127,7 @@ When \code{country} is specified, the function:
 \item Retrieves country boundary via \code{get_country_boundary()}
 \item Crops raster to country extent
 \item Optionally masks to exact country boundary
-\item Saves cropped data with "_\link{ISO3}" suffix
+\item Saves cropped data with "_(ISO3)" suffix
 \item Optionally deletes global file if \code{keep_global = FALSE}
 }
 

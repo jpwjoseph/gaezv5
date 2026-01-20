@@ -4,7 +4,7 @@
 \name{gaezv5-package}
 \alias{gaezv5}
 \alias{gaezv5-package}
-\title{gaezv5: Download and Process GAEZ v5 Agricultural Data}
+\title{gaezv5: Download and Process GAEZ V5 Agricultural Data}
 \description{
 Tools for downloading and working with Global Agro-Ecological Zones (GAEZ) version 5 data from the Food and Agriculture Organization (FAO). GAEZ v5 provides comprehensive global data on agricultural potential, crop suitability, attainable yields, and agro-climatic resources. This package simplifies data access through intuitive functions for searching variables, building download URLs, and batch downloading datasets across multiple crops, scenarios, and time periods. Features efficient parallel downloads, time series support, interactive map previews via REST API, and flexible parameter handling for climate change impact studies.
 }
