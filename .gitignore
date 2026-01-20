@@ -20,3 +20,5 @@ FUTURE_PLANS.md
 
 # Test scripts for ImageServer API development
 test_imageserver_api.R
+gaezv5.Rcheck/
+gaezv5_*.tar.gz
