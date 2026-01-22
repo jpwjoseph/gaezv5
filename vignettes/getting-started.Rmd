@@ -137,7 +137,7 @@ print(validation)
 
 Once you know what you want to download, build a URL:
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Build a download URL
 url <- build_gaez_url(
   variable = "RES05-YX",
@@ -159,7 +159,7 @@ print(paste("URL exists:", exists))
 
 The following functions require internet access to Google Cloud Storage and will only work when NOT_CRAN is set:
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Load maize yield data (automatically downloads if needed)
 maize <- load_gaez_data(
   crop = "MZE",
@@ -174,7 +174,7 @@ terra::plot(maize, main = "Global Maize Attainable Yield (2001-2020)")
 
 Reduce file sizes dramatically by cropping to country boundaries:
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Load Niger maize data (much smaller than global)
 niger_maize <- load_gaez_data(
   crop = "MZE",
@@ -190,7 +190,7 @@ terra::plot(niger_maize, main = "Niger Maize Yield")
 
 Preview data without downloading full datasets:
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Interactive leaflet map preview (no full download needed!)
 preview_gaez_map(
   variable = "RES05-YX",
@@ -202,7 +202,7 @@ preview_gaez_map(
 
 ### Batch Download Multiple Datasets
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Download multiple crops efficiently
 results <- batch_download_gaez_datasets(
   crops = c("MZE", "WHE", "SOR"),
@@ -218,7 +218,7 @@ print(paste(success_count, "out of", length(results), "downloads succeeded"))
 
 ### Combine Batch Results
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Download time series
 time_results <- batch_download_gaez_datasets(
   crops = "MZE",
@@ -238,7 +238,7 @@ print(timeseries)  # Shows 3 layers
 
 ### Historical vs Future Comparison
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Load historical
 hist <- load_gaez_data(
   crop = "WHE",
@@ -261,7 +261,7 @@ plot(change, main = "Wheat Yield Change: 2041-2060 vs 2001-2020")
 
 ### Scenario Comparison
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Download multiple scenarios
 scenario_results <- batch_download_gaez_datasets(
   crops = "MZE",
@@ -282,7 +282,7 @@ plot(scenarios)
 
 ### Country-Level Analysis
 
-```{r eval=identical(Sys.getenv("NOT_CRAN"), "true")}
+```{r eval=FALSE}
 # Download for multiple countries
 countries <- c("Niger", "Nigeria", "Burkina Faso")
 country_data <- list()

@@ -29,11 +29,11 @@ This package is designed to download and process geographic raster data from ext
 
 Package size: ~200 KB (without downloads)
 
-### Smart Vignette with Conditional Code Execution
+### Smart Vignette Design
 
-The vignette is included in the CRAN submission with intelligent code evaluation:
+The vignette is included in the CRAN submission with code evaluation designed for CRAN compatibility:
 
-**Functions that Execute on CRAN** (eval=TRUE):
+**Functions that Execute During Vignette Build** (eval=TRUE):
 - `list_gaez_crops()` - Lists available crops
 - `get_gaez_variables()` - Retrieves all variables
 - `list_gaez_scenarios()` - Shows available scenarios
@@ -44,7 +44,7 @@ The vignette is included in the CRAN submission with intelligent code evaluation
 
 These functions access only internal package data (no internet required) and demonstrate the package's core data discovery capabilities.
 
-**Functions that Only Execute Locally** (eval=identical(Sys.getenv("NOT_CRAN"), "true")):
+**Functions Shown as Examples Only** (eval=FALSE):
 - `build_gaez_url()` - URL construction
 - `check_url_exists()` - URL validation
 - `download_gaez_dataset()` - Downloads data
@@ -53,13 +53,13 @@ These functions access only internal package data (no internet required) and dem
 - `preview_gaez_map()` - Interactive map previews
 - `combine_gaez_batch()` - Combines multiple datasets
 
-These functions require internet access to Google Cloud Storage and FAO ImageServer, so they only execute when NOT_CRAN environment variable is set (i.e., locally or in CI/CD, not during CRAN checks).
+These functions require internet access to Google Cloud Storage and FAO ImageServer, so they are shown as code examples that users can run locally.
 
 **Benefits of This Approach**:
 - ✓ Vignette included in CRAN package
-- ✓ Safe functions demonstrate core functionality on CRAN
+- ✓ Safe functions demonstrate core functionality
 - ✓ No errors from external services during checks
-- ✓ Users installing from GitHub see full vignette with all examples
+- ✓ Users can copy and run download examples locally
 - ✓ Follows R-Packages best practices for data-access packages
 
 ## Notes for CRAN Maintainers
