@@ -198,39 +198,30 @@ preview_gaez_map <- function(variable = "RES05-YX",
     cat("[1/5] Validating parameters...\n")
   }
   
-  # Look up variable information
-  var_info <- lookup_gaez_variable(variable)
-
-  # Look up crop code (only for themes 3-6 which have crop-specific data)
-  crop_code <- NULL
-  if (var_info$theme_number %in% c(3, 4, 5, 6)) {
-    crop_code <- lookup_gaez_crop(crop, var_info$theme_number, interactive = interactive)
-  } else {
-    # Themes 1 & 2 don't use crop codes
-    crop_code <- NA_character_
-  }
-  
-  # Handle time period lookup if years provided
-  time_period <- lookup_time_period_from_years(
+  # Use comprehensive parameter validation - this validates all combinations
+  # before attempting data access and provides informative error messages
+  validated <- validate_gaez_parameters(
+    variable = variable,
+    time_period = time_period,
     start_year = start_year,
     end_year = end_year,
-    time_period = time_period,
+    climate_model = climate_model,
+    ssp = ssp,
+    crop = crop,
+    water_management_level = water_management_level,
+    water_supply = water_supply,
     interactive = interactive,
     verbose = verbose
   )
   
-  # Validate and adjust climate model and SSP
-  validation_result <- validate_climate_ssp(time_period, climate_model, ssp)
-  climate_model <- validation_result$climate_model
-  ssp <- validation_result$ssp
-  
-  if (verbose) {
-    cat("  Variable:", var_info$variable_name, "\n")
-    cat("  Crop:", crop_code, "\n")
-    cat("  Time period:", time_period, "\n")
-    cat("  Climate model:", climate_model, "\n")
-    cat("  SSP:", ssp, "\n")
-  }
+  # Extract validated parameters
+  var_info <- validated$var_info
+  crop_code <- validated$crop_code
+  time_period <- validated$time_period
+  climate_model <- validated$climate_model
+  ssp <- validated$ssp
+  water_management_level <- validated$water_management_level
+  water_supply <- validated$water_supply
   
   # ====================
   # DETERMINE EXTENT

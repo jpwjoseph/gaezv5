@@ -308,49 +308,153 @@ barplot(mean_yields, main = "Sorghum Yield by Country",
 
 ------------------------------------------------------------------------
 
-## Understanding GAEZ Codes
+## Understanding GAEZ Codes and Valid Combinations
 
-### Time Periods
+GAEZ v5 data is organized into **themes**, each with different parameter requirements. Understanding which parameters are valid for each theme is essential for successful data access.
 
-| Code   | Period    | Description         |
-|--------|-----------|---------------------|
-| HP8100 | 1981-2000 | Historical baseline |
-| HP0120 | 2001-2020 | Recent historical   |
-| FP2140 | 2021-2040 | Near future         |
-| FP4160 | 2041-2060 | Mid-century         |
-| FP6180 | 2061-2080 | Late century        |
-| FP8100 | 2081-2100 | End of century      |
+### GAEZ Themes Overview
 
-### Climate Models
+| Theme | Name | Description |
+|-------|------|-------------|
+| 1 | Land Resources | Static land and soil data (no time/climate variation) |
+| 2 | Agro-Climatic Resources | Temperature, precipitation, growing periods |
+| 3 | Agro-Climatic Potential Yield | Crop-specific potential yields (4-letter crop codes) |
+| 4 | Suitability & Attainable Yield | Crop suitability and yields (3-letter crop codes) |
+| 5 | Actual Yields & Production | Current observed yields |
+| 6 | Yield & Production Gaps | Gap between potential and actual |
 
--   **AGERA5**: Historical periods only (reanalysis data)
--   **ENSEMBLE**: Multi-model mean (recommended for future)
--   Individual GCMs: GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL
+### Valid Parameter Combinations by Theme
 
-### SSP Scenarios
+**Theme 1: Land Resources** (Static data)
 
--   **HIST**: Historical scenario
--   **SSP126**: Low emissions (Paris Agreement, \~1.5-2°C)
--   **SSP370**: Medium emissions (current policies, \~3-4°C)
--   **SSP585**: High emissions (worst case, \~4-5°C)
+| Parameter | Required? | Valid Values |
+|-----------|-----------|--------------|
+| variable | ✓ | Theme 1 variable codes (e.g., soil, terrain) |
+| time_period | ✗ | Not used |
+| climate_model | ✗ | Not used |
+| ssp | ✗ | Not used |
+| crop | ✗ | Not used |
+| water_management | ✗ | Not used |
+| water_supply | ✗ | Not used |
 
-### Water Management
+**Theme 2: Agro-Climatic Resources** (Climate-dependent)
 
-| Code | Description                           |
-|------|---------------------------------------|
-| HRLM | High input, Rainfed, Low management   |
-| HILM | High input, Irrigated, Low management |
-| LRLM | Low input, Rainfed, Low management    |
-| LILM | Low input, Irrigated, Low management  |
+| Parameter | Required? | Valid Values |
+|-----------|-----------|--------------|
+| variable | ✓ | Theme 2 variable codes (e.g., temperature, LGP) |
+| time_period | ✓ | HP8100, HP0120, FP2140, FP4160, FP6180, FP8100 |
+| climate_model | ✓ | AGERA5 (historical) or ENSEMBLE/GCMs (future) |
+| ssp | ✓ | HIST (historical) or SSP126/SSP370/SSP585 (future) |
+| crop | ✗ | Not used |
+| water_management | ✗ | Not used |
+| water_supply | ✗ | Not used |
 
-### Common Crop Codes (Theme 4)
+**Themes 3-4: Crop Yields & Suitability** (Climate + crop-dependent)
+
+| Parameter | Required? | Valid Values |
+|-----------|-----------|--------------|
+| variable | ✓ | RES02-* (theme 3) or RES05-* (theme 4) |
+| time_period | ✓ | HP8100, HP0120, FP2140, FP4160, FP6180, FP8100 |
+| climate_model | ✓ | AGERA5 (historical) or ENSEMBLE/GCMs (future) |
+| ssp | ✓ | HIST (historical) or SSP126/SSP370/SSP585 (future) |
+| crop | ✓ | 4-letter codes (theme 3) or 3-letter codes (theme 4) |
+| water_management | ✓ | HRLM, HILM, LRLM, LILM |
+| water_supply | ✗ | Not used (use water_management instead) |
+
+**Themes 5-6: Actual Yields & Gaps** (Static, crop-dependent)
+
+| Parameter | Required? | Valid Values |
+|-----------|-----------|--------------|
+| variable | ✓ | RES06-* (theme 5) or RES07-* (theme 6) |
+| time_period | ✗ | Not used |
+| climate_model | ✗ | Not used |
+| ssp | ✗ | Not used |
+| crop | ✓ | 3-letter crop codes |
+| water_management | ✗ | Not used (use water_supply instead) |
+| water_supply | ✓ | WSR (rainfed), WSI (irrigated), WST (total) |
+
+### Time Period / Climate Model / SSP Combinations
+
+| Time Period | Climate Model | SSP | Description |
+|------------|---------------|-----|-------------|
+| HP8100 | AGERA5 | HIST | Historical baseline 1981-2000 |
+| HP0120 | AGERA5 | HIST | Recent historical 2001-2020 |
+| FP2140 | ENSEMBLE or GCM | SSP126/SSP370/SSP585 | Near future 2021-2040 |
+| FP4160 | ENSEMBLE or GCM | SSP126/SSP370/SSP585 | Mid-century 2041-2060 |
+| FP6180 | ENSEMBLE or GCM | SSP126/SSP370/SSP585 | Late century 2061-2080 |
+| FP8100 | ENSEMBLE or GCM | SSP126/SSP370/SSP585 | End of century 2081-2100 |
+
+**Available GCMs for future periods:**
+GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL
+
+### Water Management Codes (Themes 3-4)
+
+| Code | Input Level | Water Source | Management |
+|------|-------------|--------------|------------|
+| HRLM | High | Rainfed | Low |
+| HILM | High | Irrigated | Low |
+| LRLM | Low | Rainfed | Low |
+| LILM | Low | Irrigated | Low |
+
+### Water Supply Codes (Themes 5-6)
+
+| Code | Description |
+|------|-------------|
+| WSR | Rainfed water supply |
+| WSI | Irrigated water supply |
+| WST | Total (combined) water supply |
+
+### Common Crop Codes
+
+**Theme 4 (3-letter codes):**
 
 | Code | Crop         | Code | Crop    |
 |------|--------------|------|---------|
 | MZE  | Maize        | WHE  | Wheat   |
-| RIC  | Rice         | SOR  | Sorghum |
+| RIC  | Rice         | SRG  | Sorghum |
 | PMI  | Pearl millet | COW  | Cowpea  |
 | SUN  | Sunflower    | SOY  | Soybean |
+
+**Theme 3 (4-letter codes):**
+
+| Code | Crop         | Code | Crop    |
+|------|--------------|------|---------|
+| MAIZ | Maize        | WHEA | Wheat   |
+| RICE | Rice         | SORG | Sorghum |
+| PMIL | Pearl millet | COWP | Cowpea  |
+
+### Validating Parameters
+
+Use `validate_gaez_parameters()` to check if your parameter combination is valid before downloading:
+
+```{r eval=TRUE}
+# Valid theme 4 combination (future period)
+result <- validate_gaez_parameters(
+  variable = "RES05-YX",
+  crop = "maize",
+  time_period = "FP4160",
+  ssp = "SSP370",
+  water_management_level = "HRLM",
+  interactive = FALSE,
+  verbose = FALSE
+)
+cat("Theme:", result$theme_number, "\n")
+cat("Crop code:", result$crop_code, "\n")
+cat("Climate model:", result$climate_model, "\n")
+```
+
+```{r eval=TRUE, error=TRUE}
+# Invalid combination - wrong water_management code
+tryCatch({
+  validate_gaez_parameters(
+    variable = "RES05-YX",
+    crop = "maize",
+    water_management_level = "INVALID",
+    interactive = FALSE,
+    verbose = FALSE
+  )
+}, error = function(e) cat(conditionMessage(e)))
+```
 
 ------------------------------------------------------------------------
 

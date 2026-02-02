@@ -135,21 +135,29 @@ build_gaez_url <- function(variable = "RES05-YX",
     verbose = TRUE
   )
 
-  # Validate and adjust climate model and SSP based on time period
-  validation_result <- validate_climate_ssp(time_period, climate_model, ssp)
-  climate_model <- validation_result$climate_model
-  ssp <- validation_result$ssp
-
   # Build base URL
   base_url <- "https://storage.googleapis.com/fao-gismgr-gaez-v5-data/DATA/GAEZ-V5"
   data_folder <- var_info$data_folder
   variable_code <- var_info$data_code
+  theme_num <- var_info$theme_number
+
+  # For themes 5 and 6, skip time period and climate validation since they are static
+  if (theme_num %in% c(5, 6)) {
+    # These themes don't use time_period, climate_model, or ssp
+    time_period <- NA_character_
+    climate_model <- NA_character_
+    ssp <- NA_character_
+  } else {
+    # Validate and adjust climate model and SSP based on time period
+    validation_result <- validate_climate_ssp(time_period, climate_model, ssp)
+    climate_model <- validation_result$climate_model
+    ssp <- validation_result$ssp
+  }
 
   # Build filename components based on variable pattern
   filename_parts <- c("GAEZ-V5")
 
   # Add components based on variable type (theme-based logic)
-  theme_num <- var_info$theme_number
   url_structure <- gaez_url_structure |>
     filter(theme == theme_num) |>
     pull(filename_parts) |>
@@ -240,24 +248,36 @@ build_gaez_url <- function(variable = "RES05-YX",
   # Create descriptive message
   var_desc <- var_info$variable_name
 
-  # Safe lookup with fallback
-  time_desc <- gaez_scenarios |>
-    filter(time_period == !!time_period) |>
-    pull(description) |>
-    first()
-  if (is.null(time_desc)) time_desc <- time_period
+  # Safe lookup with fallback - handle NA values properly for theme 5-6
+  if (!is.na(time_period)) {
+    time_desc <- gaez_scenarios |>
+      filter(time_period == !!time_period) |>
+      pull(description) |>
+      first()
+    if (is.null(time_desc)) time_desc <- time_period
+  } else {
+    time_desc <- "N/A (static data)"
+  }
 
-  climate_desc <- gaez_scenarios |>
-    filter(climate_model == !!climate_model) |>
-    pull(description) |>
-    first()
-  if (is.null(climate_desc)) climate_desc <- climate_model
+  if (!is.na(climate_model)) {
+    climate_desc <- gaez_scenarios |>
+      filter(climate_model == !!climate_model) |>
+      pull(description) |>
+      first()
+    if (is.null(climate_desc)) climate_desc <- climate_model
+  } else {
+    climate_desc <- "N/A (static data)"
+  }
 
-  ssp_desc <- gaez_scenarios |>
-    filter(ssp == !!ssp) |>
-    pull(description) |>
-    first()
-  if (is.null(ssp_desc) || is.na(ssp_desc)) ssp_desc <- NA_character_
+  if (!is.na(ssp)) {
+    ssp_desc <- gaez_scenarios |>
+      filter(ssp == !!ssp) |>
+      pull(description) |>
+      first()
+    if (is.null(ssp_desc)) ssp_desc <- NA_character_
+  } else {
+    ssp_desc <- NA_character_
+  }
 
   crop_desc <- gaez_crops |>
     filter(
@@ -270,13 +290,20 @@ build_gaez_url <- function(variable = "RES05-YX",
 
   message("Building URL for:")
   message(paste("  Variable:", var_desc))
-  message(paste("  Time period:", time_desc))
-  message(paste("  Climate:", climate_desc))
-  if (!is.na(ssp_desc)) {
-    message(paste("  Scenario:", ssp_desc))
+  if (theme_num %in% c(2, 3, 4)) {
+    message(paste("  Time period:", time_desc))
+    message(paste("  Climate:", climate_desc))
+    if (!is.na(ssp_desc)) {
+      message(paste("  Scenario:", ssp_desc))
+    }
   }
   message(paste("  Crop:", crop_desc))
-  message(paste("  Management:", water_management_level))
+  if (theme_num %in% c(3, 4)) {
+    message(paste("  Water management:", water_management_level))
+  }
+  if (theme_num %in% c(5, 6)) {
+    message(paste("  Water supply:", water_supply))
+  }
 
   return(url)
 }
