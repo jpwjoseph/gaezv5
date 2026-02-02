@@ -570,15 +570,15 @@ map_ssp_to_rcp <- function(ssp) {
 #'
 #' Converts GAEZ water supply codes to ImageServer water supply names.
 #'
-#' @param water_supply Character - GAEZ water supply code (e.g., "WSR", "WSS")
+#' @param water_supply Character - GAEZ water supply code (e.g., "WSR", "WSI", "WST")
 #'
 #' @return Character water supply name for ImageServer
 #'
 #' @details
-#' Mapping:
-#' - WSR → "Rainfed"
-#' - WSS → "Sprinkler Irrigation"
-#' - WSG → "Gravity Irrigation" (if available)
+#' GAEZ water supply codes and their ImageServer mappings:
+#' - WSR (Rain-fed) → "Rainfed"
+#' - WSI (Irrigated) → "Irrigated"
+#' - WST (Total) → "Total"
 #'
 #' @keywords internal
 #' @noRd
@@ -589,11 +589,12 @@ map_water_supply_to_imageserver <- function(water_supply) {
 
   water_supply_upper <- toupper(water_supply)
 
-  # Map water supply codes to names
+  # Map water supply codes to ImageServer names
+  # These are the valid GAEZ v5 water supply codes
   water_map <- c(
     "WSR" = "Rainfed",
-    "WSS" = "Sprinkler Irrigation",
-    "WSG" = "Gravity Irrigation"
+    "WSI" = "Irrigated",
+    "WST" = "Total"
   )
 
   water_name <- water_map[water_supply_upper]
@@ -608,17 +609,24 @@ map_water_supply_to_imageserver <- function(water_supply) {
 
 #' Map GAEZ input level to ImageServer input level name
 #'
-#' Converts GAEZ input level codes to ImageServer input level names.
+#' Converts GAEZ water management level codes to ImageServer input level names.
+#' The GAEZ codes encode multiple attributes:
+#' - First letter: H = High input, L = Low input
+#' - Second letter: R = Rain-fed, I = Irrigated
+#' - Third-fourth letters: LM = Low management
 #'
-#' @param input_level Character - GAEZ input level code (e.g., "HRLM", "LR", "IR")
+#' @param input_level Character - GAEZ water management code (e.g., "HRLM", "HILM", "LRLM", "LILM")
 #'
 #' @return Character input level name for ImageServer
 #'
 #' @details
-#' Mapping:
-#' - HRLM or HR → "High"
-#' - IR → "Intermediate"
-#' - LR → "Low"
+#' GAEZ water management codes and their ImageServer mappings:
+#' - HRLM (High input, Rain-fed, Low management) → "High"
+#' - HILM (High input, Irrigated, Low management) → "High"
+#' - LRLM (Low input, Rain-fed, Low management) → "Low"
+#' - LILM (Low input, Irrigated, Low management) → "Low"
+#'
+#' The input level (High/Low) is determined by the first character of the code.
 #'
 #' @keywords internal
 #' @noRd
@@ -629,12 +637,13 @@ map_input_level_to_imageserver <- function(input_level) {
 
   input_level_upper <- toupper(input_level)
 
-  # Map input level codes to names
+  # Map all valid water management codes to ImageServer input level names
+  # The first letter indicates input level: H = High, L = Low
   input_map <- c(
     "HRLM" = "High",
-    "HR" = "High",
-    "IR" = "Intermediate",
-    "LR" = "Low"
+    "HILM" = "High",
+    "LRLM" = "Low",
+    "LILM" = "Low"
   )
 
   input_name <- input_map[input_level_upper]
