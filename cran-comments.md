@@ -6,8 +6,7 @@ The package provides tools for downloading, processing, and analyzing Global Agr
 
 ## Test Environments
 
-* Local: Windows 10, R 4.3.x / 4.4.x
-* GitHub Actions CI/CD: Windows, macOS, Ubuntu (latest)
+* Local: Windows 11, R 4.4.x
 * WinBuilder: Windows (current, old-release, development versions)
 * R-hub: Multiple platforms and R versions
 
