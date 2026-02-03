@@ -495,10 +495,13 @@ validate_gaez_parameters <- function(variable,
   # Themes 5 and 6 don't use time-varying climate data
   if (theme_number %in% c(5, 6)) {
     # Theme 5-6: Actual yields/gaps don't use climate models or time periods
+    # These are static datasets, so set all time-related parameters to NA
+    time_period <- NA_character_
     climate_model <- NA_character_
     ssp <- NA_character_
   } else if (theme_number %in% c(1)) {
     # Theme 1: Static land resources, no climate/time variation
+    time_period <- NA_character_
     climate_model <- NA_character_
     ssp <- NA_character_
   } else {
