@@ -4,14 +4,15 @@
 \alias{gaez_wmts_url}
 \title{FAO WMTS tile URL for a GAEZ v5 layer}
 \usage{
-gaez_wmts_url(url, tilematrixset = "EPSG:3857", style = NULL)
+gaez_wmts_url(url, tilematrixset = wmts_setting("tilematrixset"), style = NULL)
 }
 \arguments{
 \item{url}{Character - Download URL of a GAEZ v5 GeoTIFF, as returned by
 \code{build_gaez_url()}.}
 
-\item{tilematrixset}{Character - Tile matrix set identifier. "EPSG:3857"
-(default) matches web-mercator maps such as leaflet's default projection.}
+\item{tilematrixset}{Character - Tile matrix set identifier. Defaults to
+\code{getOption("gaezv5.wmts_tilematrixset", "EPSG:3857")}, which matches
+web-mercator maps such as leaflet's default projection.}
 
 \item{style}{Character - Optional style code. NULL uses the style published
 with the layer, or the service default when none is published.}
@@ -34,8 +35,10 @@ each GeoTIFF in the bucket (\code{<file>.json}).
 
 Maps (theme 1) use the layer \code{fao-gismgr/GAEZ-V5/maps/<map>/<raster>}.
 Mapsets use \code{fao-gismgr/GAEZ-V5/mapsets/<mapset>} and select one raster
-with \code{dim_<DIMENSION>=<member>} parameters. The service root can be
-changed with \code{options(gaezv5.wmts_root = "<url>")}.
+with \code{dim_<DIMENSION>=<member>} parameters. Service settings can be
+changed with the options \code{gaezv5.wmts_root},
+\code{gaezv5.wmts_tilematrixset}, \code{gaezv5.wmts_tilematrix_prefix} and
+\code{gaezv5.wmts_style}.
 }
 \examples{
 \dontrun{
@@ -50,5 +53,5 @@ leaflet::leaflet() |>
 
 }
 \seealso{
-\code{\link{preview_gaez_map}} with \code{tiles = TRUE}
+\code{\link{preview_gaez_map}}
 }

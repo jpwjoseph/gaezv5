@@ -21,20 +21,25 @@
   `resolution`, `class` and `interactive` from `...` to the URL builder.
 * `preview_gaez_map()` previously queried the FAO ArcGIS ImageServer, which
   serves GAEZ v4 data (CRU TS 3.2 baseline, RCP scenarios, 30-year periods).
-  It now reads a reduced-resolution overview of the GAEZ v5 Cloud-Optimized
-  GeoTIFF directly from the FAO bucket. A global preview of a ~1 km layer
-  transfers under 1 MB.
+  It now requests a server-rendered image of the GAEZ v5 layer from the FAO
+  GISMGR WMTS (`data.apps.fao.org/map/wmts/wmts`), with the same steps as
+  before: map the parameters, fetch an image for the extent and size, mask it
+  to the country, fall back when the service fails. The fallbacks are a
+  reduced-resolution read of the Cloud-Optimized GeoTIFF in the FAO bucket
+  (under 1 MB for a global preview of a ~1 km layer), then the full download.
+  `source = "cog"` selects the data-value preview with a numeric legend.
 
 ## New features
 
 * `preview_gaez_map(location = c(lon, lat), radius_km = 50)` previews a
   window around a point, read from the cloud-optimized GeoTIFF (1-3 s), marks
   the point and returns the full-resolution value at it (`location_value`).
-* `gaez_wmts_url()` returns the FAO GISMGR WMTS tile template
-  (`data.apps.fao.org/map/wmts/wmts`) for a layer, with the layer and
-  dimension members taken from FAO's metadata file next to each GeoTIFF.
-  `preview_gaez_map(tiles = TRUE)` adds these server-rendered tiles as an
+* `gaez_wmts_url()` returns the FAO GISMGR WMTS tile template for a layer,
+  with the layer and dimension members taken from FAO's metadata file next
+  to each GeoTIFF. `preview_gaez_map(tiles = TRUE)` adds the live tiles as an
   overlay in the leaflet viewer.
+* `preview_gaez_map(return_data = TRUE)` returns data values (`data`), the
+  WMTS image (`image`) and the source used (`source`).
 
 ## New arguments
 
@@ -62,6 +67,8 @@
 
 * `validate_gaez_parameters()` is exported and returns the resolved URL.
 * `httr::GET`, `httr::content` and `utils::download.file` are no longer used.
+* Requires leaflet >= 2.2.0 (terra `SpatRaster` support); the `raster`
+  package is no longer used. `jsonlite` moves to Imports.
 
 # gaezv5 0.2.0
 

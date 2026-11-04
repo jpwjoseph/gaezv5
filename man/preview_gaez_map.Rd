@@ -31,7 +31,8 @@ preview_gaez_map(
   class = NULL,
   location = NULL,
   radius_km = 50,
-  tiles = FALSE
+  tiles = FALSE,
+  source = c("auto", "wmts", "cog")
 )
 }
 \arguments{
@@ -131,9 +132,18 @@ and reports the full-resolution value at the point. Overridden by country.}
 \item{radius_km}{Numeric - Half-width of the window around \code{location}
 in kilometres (default: 50).}
 
-\item{tiles}{Logical - Add the layer as server-rendered FAO WMTS tiles
+\item{tiles}{Logical - Add the live FAO WMTS tile layer
 (see \code{\link{gaez_wmts_url}}) as an extra overlay in the leaflet
-viewer. Default FALSE.}
+viewer, for zooming beyond the preview resolution. Default FALSE.}
+
+\item{source}{Character - Data source for the preview:
+\itemize{
+\item "auto" (default): WMTS image, then Cloud-Optimized GeoTIFF, then
+full download
+\item "wmts": WMTS image only (error if unavailable)
+\item "cog": data values read from the Cloud-Optimized GeoTIFF, coloured
+with \code{color_palette} and shown with a numeric legend
+}}
 }
 \value{
 Depends on viewer type:
@@ -141,28 +151,43 @@ Depends on viewer type:
 \item "leaflet": A leaflet map object
 \item "static": Returns NULL invisibly (displays plot)
 }
-If return_data = TRUE, returns a list with map and raster data. The raster
-has preview resolution; use \code{load_gaez_data()} for full resolution.
-With \code{location}, the list also holds \code{location_value}, the
-full-resolution value at the point.
+If return_data = TRUE, returns a list with the map, \code{data} (data
+values at preview resolution, read from the Cloud-Optimized GeoTIFF),
+\code{image} (the WMTS RGBA image, or NULL), \code{source} ("wmts",
+"cog" or "download") and descriptive labels. Use \code{load_gaez_data()}
+for full resolution. With \code{location}, the list also holds
+\code{location_value}, the full-resolution value at the point.
 }
 \description{
 Creates an interactive leaflet map preview of GAEZ v5 data without requiring
-full dataset downloads. Reads a reduced-resolution version of the layer
-directly from the Cloud-Optimized GeoTIFF in the FAO bucket, and falls back
-to downloading the full file when the remote read fails. Supports global,
-country-level and bounding-box previews.
+full dataset downloads. Requests a server-rendered image from the FAO GISMGR
+Web Map Tile Service (WMTS) first, reads the Cloud-Optimized GeoTIFF in the
+FAO bucket when the WMTS is unavailable, and downloads the full file as a
+last resort. Supports global, country-level, location and bounding-box
+previews.
 }
 \details{
 \subsection{Preview Strategy}{
 
-GAEZ v5 rasters are Cloud-Optimized GeoTIFFs with internal overviews. The
-function opens the remote file through GDAL (\code{/vsicurl/}), selects the
-coarsest overview that still provides about \code{width} pixels across the
-requested extent, and reads only that window. A global preview of a ~1 km
-layer transfers well under 1 MB. If the remote read fails (for example,
-GDAL built without network support), the full file is downloaded with
-\code{load_gaez_data()} instead.
+The function uses a three-tier strategy:
+\enumerate{
+\item \strong{WMTS} (server-rendered, no data transfer): the FAO GISMGR Web Map
+Tile Service renders the layer with FAO's styles. The function requests
+the web-mercator tiles covering the extent, mosaics them, resamples the
+mosaic to \code{width} x \code{height} pixels in WGS84 and masks it to the
+country boundary. The image carries colours, not data values.
+\item \strong{Cloud-Optimized GeoTIFF}: when the WMTS fails or returns an empty
+image, the function reads the coarsest overview of the GeoTIFF that still
+provides about \code{width} pixels across the extent (a global preview of
+a ~1 km layer transfers under 1 MB).
+\item \strong{Download}: the full file is downloaded with \code{load_gaez_data()}.
+}
+
+WMTS settings can be changed with the options \code{gaezv5.wmts_root},
+\code{gaezv5.wmts_tilematrixset}, \code{gaezv5.wmts_tilematrix_prefix},
+\code{gaezv5.wmts_style}, \code{gaezv5.wmts_max_zoom} and
+\code{gaezv5.wmts_max_tiles}; \code{options(gaezv5.wmts = FALSE)} skips
+the WMTS.
 }
 
 \subsection{Geographic Extents}{

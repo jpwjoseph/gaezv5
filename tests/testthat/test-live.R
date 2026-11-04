@@ -75,3 +75,27 @@ test_that("FAO WMTS serves a tile for a GAEZ v5 layer", {
   expect_equal(res$status_code, 200)
   expect_match(res$type, "^image/")
 })
+
+test_that("fetch_wmts_tile returns a georeferenced image from the FAO WMTS", {
+  skip_on_cran()
+  reachable <- tryCatch(
+    curl::curl_fetch_memory("https://data.apps.fao.org/map/wmts/wmts?service=WMTS&request=GetCapabilities",
+                            handle = curl::new_handle(timeout = 20))$status_code,
+    error = function(e) NA
+  )
+  if (is.na(reachable)) skip("data.apps.fao.org not reachable")
+
+  path <- fetch_wmts_tile(
+    build_wmts_url(4, "RES05-YX"), c(30, -5, 42, 5), 400, 300,
+    crop = map_crop_code_to_wmts("MZE", 4),
+    time_period = map_time_period_to_wmts("HP0120"),
+    climate_model = map_climate_model_to_wmts("AGERA5"),
+    ssp = map_ssp_to_wmts("HIST"),
+    input_level = map_input_level_to_wmts("HRLM", 4),
+    verbose = FALSE
+  )
+  expect_true(!is.null(path) && file.exists(path))
+  image <- terra::rast(path)
+  expect_equal(dim(image), c(300, 400, 4))
+  expect_true(any(terra::values(image[[4]]) > 0, na.rm = TRUE))
+})

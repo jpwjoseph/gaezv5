@@ -1,10 +1,11 @@
 #' Preview GAEZ Data as Interactive Map
 #'
 #' Creates an interactive leaflet map preview of GAEZ v5 data without requiring
-#' full dataset downloads. Reads a reduced-resolution version of the layer
-#' directly from the Cloud-Optimized GeoTIFF in the FAO bucket, and falls back
-#' to downloading the full file when the remote read fails. Supports global,
-#' country-level and bounding-box previews.
+#' full dataset downloads. Requests a server-rendered image from the FAO GISMGR
+#' Web Map Tile Service (WMTS) first, reads the Cloud-Optimized GeoTIFF in the
+#' FAO bucket when the WMTS is unavailable, and downloads the full file as a
+#' last resort. Supports global, country-level, location and bounding-box
+#' previews.
 #'
 #' @inheritParams build_gaez_url
 #' @inheritParams load_gaez_data
@@ -42,30 +43,50 @@
 #'   and reports the full-resolution value at the point. Overridden by country.
 #' @param radius_km Numeric - Half-width of the window around \code{location}
 #'   in kilometres (default: 50).
-#' @param tiles Logical - Add the layer as server-rendered FAO WMTS tiles
+#' @param tiles Logical - Add the live FAO WMTS tile layer
 #'   (see \code{\link{gaez_wmts_url}}) as an extra overlay in the leaflet
-#'   viewer. Default FALSE.
+#'   viewer, for zooming beyond the preview resolution. Default FALSE.
+#' @param source Character - Data source for the preview:
+#'   \itemize{
+#'     \item "auto" (default): WMTS image, then Cloud-Optimized GeoTIFF, then
+#'       full download
+#'     \item "wmts": WMTS image only (error if unavailable)
+#'     \item "cog": data values read from the Cloud-Optimized GeoTIFF, coloured
+#'       with \code{color_palette} and shown with a numeric legend
+#'   }
 #'
 #' @return Depends on viewer type:
 #'   \itemize{
 #'     \item "leaflet": A leaflet map object
 #'     \item "static": Returns NULL invisibly (displays plot)
 #'   }
-#'   If return_data = TRUE, returns a list with map and raster data. The raster
-#'   has preview resolution; use \code{load_gaez_data()} for full resolution.
-#'   With \code{location}, the list also holds \code{location_value}, the
-#'   full-resolution value at the point.
+#'   If return_data = TRUE, returns a list with the map, \code{data} (data
+#'   values at preview resolution, read from the Cloud-Optimized GeoTIFF),
+#'   \code{image} (the WMTS RGBA image, or NULL), \code{source} ("wmts",
+#'   "cog" or "download") and descriptive labels. Use \code{load_gaez_data()}
+#'   for full resolution. With \code{location}, the list also holds
+#'   \code{location_value}, the full-resolution value at the point.
 #'
 #' @details
 #' ## Preview Strategy
 #'
-#' GAEZ v5 rasters are Cloud-Optimized GeoTIFFs with internal overviews. The
-#' function opens the remote file through GDAL (\code{/vsicurl/}), selects the
-#' coarsest overview that still provides about \code{width} pixels across the
-#' requested extent, and reads only that window. A global preview of a ~1 km
-#' layer transfers well under 1 MB. If the remote read fails (for example,
-#' GDAL built without network support), the full file is downloaded with
-#' \code{load_gaez_data()} instead.
+#' The function uses a three-tier strategy:
+#' 1. **WMTS** (server-rendered, no data transfer): the FAO GISMGR Web Map
+#'    Tile Service renders the layer with FAO's styles. The function requests
+#'    the web-mercator tiles covering the extent, mosaics them, resamples the
+#'    mosaic to \code{width} x \code{height} pixels in WGS84 and masks it to the
+#'    country boundary. The image carries colours, not data values.
+#' 2. **Cloud-Optimized GeoTIFF**: when the WMTS fails or returns an empty
+#'    image, the function reads the coarsest overview of the GeoTIFF that still
+#'    provides about \code{width} pixels across the extent (a global preview of
+#'    a ~1 km layer transfers under 1 MB).
+#' 3. **Download**: the full file is downloaded with \code{load_gaez_data()}.
+#'
+#' WMTS settings can be changed with the options \code{gaezv5.wmts_root},
+#' \code{gaezv5.wmts_tilematrixset}, \code{gaezv5.wmts_tilematrix_prefix},
+#' \code{gaezv5.wmts_style}, \code{gaezv5.wmts_max_zoom} and
+#' \code{gaezv5.wmts_max_tiles}; \code{options(gaezv5.wmts = FALSE)} skips
+#' the WMTS.
 #'
 #' ## Geographic Extents
 #'
@@ -186,10 +207,12 @@ preview_gaez_map <- function(variable = "RES05-YX",
                               class = NULL,
                               location = NULL,
                               radius_km = 50,
-                              tiles = FALSE) {
+                              tiles = FALSE,
+                              source = c("auto", "wmts", "cog")) {
   
-  # Match viewer argument
+  # Match viewer and source arguments
   viewer <- match.arg(viewer)
+  source <- match.arg(source)
   
   # Auto-select viewer based on environment
   if (viewer == "auto") {
@@ -354,23 +377,86 @@ preview_gaez_map <- function(variable = "RES05-YX",
   }
 
   theme_number <- var_info$theme_number
-  raster_data <- tryCatch(
-    read_gaez_preview(
-      validated$url,
-      bbox = if (extent_label == "Global") NULL else bbox_coords,
-      width = width,
-      boundary = boundary_vector
-    ),
-    error = function(e) {
-      if (verbose) {
-        cat("  Remote read failed (", conditionMessage(e), "); downloading the file\n", sep = "")
-      }
-      NULL
-    }
-  )
+  raster_data <- NULL
+  data_source <- NA_character_
+  cog_bbox <- if (extent_label == "Global") NULL else bbox_coords
 
-  if (!is.null(raster_data) && verbose) {
-    cat("  Read overview from", validated$url, "\n")
+  if (source != "cog" && check_wmts_availability(theme_number = theme_number)) {
+    if (verbose) {
+      cat("  Attempting WMTS preview...\n")
+    }
+
+    wmts_url <- build_wmts_url(theme_number = theme_number,
+                               variable_code = var_info$data_code)
+
+    if (!is.na(wmts_url)) {
+      dims <- list(
+        crop = map_crop_code_to_wmts(crop_code, theme_number),
+        time_period = map_time_period_to_wmts(time_period),
+        climate_model = map_climate_model_to_wmts(climate_model),
+        ssp = map_ssp_to_wmts(ssp),
+        water_supply = map_water_supply_to_wmts(water_supply),
+        input_level = map_input_level_to_wmts(water_management_level, theme_number),
+        year = map_year_to_wmts(validated$year),
+        class = map_class_to_wmts(validated$class, var_info$data_code)
+      )
+
+      if (verbose) {
+        cat("  Mapped parameters for WMTS:\n")
+        for (d in dims[!vapply(dims, is.null, logical(1))]) {
+          cat("    ", names(d), ": ", d, "\n", sep = "")
+        }
+      }
+
+      temp_file <- tryCatch(
+        do.call(fetch_wmts_tile, c(
+          list(wmts_url = wmts_url, bbox = bbox_coords, width = width, height = height),
+          dims,
+          list(geometry = boundary_vector, verbose = verbose)
+        )),
+        error = function(e) {
+          warning("WMTS image could not be assembled: ", conditionMessage(e), call. = FALSE)
+          NULL
+        }
+      )
+
+      if (!is.null(temp_file) && file.exists(temp_file)) {
+        image <- terra::rast(temp_file)
+        terra::RGB(image) <- 1:4
+        alpha <- terra::values(image[[4]], mat = FALSE)
+
+        if (any(alpha > 0, na.rm = TRUE)) {
+          raster_data <- image
+          data_source <- "wmts"
+          if (verbose) cat("  Successfully loaded image via WMTS\n")
+        } else if (verbose) {
+          cat("  WMTS returned no visible data for this extent\n")
+        }
+      } else if (verbose) {
+        cat("  WMTS preview failed\n")
+      }
+    }
+
+    if (is.null(raster_data) && source == "wmts") {
+      stop("WMTS preview failed. Use source = \"auto\" or \"cog\".", call. = FALSE)
+    }
+  }
+
+  if (is.null(raster_data)) {
+    if (verbose) cat("  Reading the Cloud-Optimized GeoTIFF...\n")
+    raster_data <- tryCatch(
+      read_gaez_preview(validated$url, bbox = cog_bbox, width = width, boundary = boundary_vector),
+      error = function(e) {
+        if (verbose) {
+          cat("  Remote read failed (", conditionMessage(e), "); downloading the file\n", sep = "")
+        }
+        NULL
+      }
+    )
+    if (!is.null(raster_data)) {
+      data_source <- "cog"
+      if (verbose) cat("  Read overview from", validated$url, "\n")
+    }
   }
 
   if (is.null(raster_data)) {
@@ -390,18 +476,37 @@ preview_gaez_map <- function(variable = "RES05-YX",
     )
 
     raster_data <- result$raster
+    data_source <- "download"
 
     if (is.null(country) && extent_label != "Global") {
       ext_obj <- terra::ext(c(bbox_coords[1], bbox_coords[3], bbox_coords[2], bbox_coords[4]))
       raster_data <- terra::crop(raster_data, ext_obj)
     }
   }
-  
+
+  value_data <- raster_data
+  image_data <- NULL
+  if (identical(data_source, "wmts")) {
+    image_data <- raster_data
+    value_data <- NULL
+    if (return_data) {
+      value_data <- tryCatch(
+        read_gaez_preview(validated$url, bbox = cog_bbox, width = width, boundary = boundary_vector),
+        error = function(e) {
+          warning("Could not read data values: ", conditionMessage(e), call. = FALSE)
+          NULL
+        }
+      )
+    }
+  }
+
   location_value <- NULL
   if (!is.null(location)) {
     location_value <- tryCatch(
       read_gaez_point(validated$url, location[1], location[2]),
-      error = function(e) terra::extract(raster_data, matrix(location, ncol = 2))[[1]]
+      error = function(e) {
+        if (is.null(value_data)) NA else terra::extract(value_data, matrix(location, ncol = 2))[[1]]
+      }
     )
     if (verbose) cat("  Value at location:", format(location_value), "\n")
   }
@@ -490,7 +595,8 @@ preview_gaez_map <- function(variable = "RES05-YX",
     } else {
       # Save static plot as PNG
       png(save_path, width = width, height = height)
-      terra::plot(raster_data, main = map_title, col = hcl.colors(100, color_palette))
+      create_static_preview(raster_data, map_title, color_palette, verbose = FALSE,
+                            location = location)
       dev.off()
       if (verbose) {
         cat("  Plot saved to:", save_path, "\n")
@@ -501,6 +607,7 @@ preview_gaez_map <- function(variable = "RES05-YX",
   if (verbose) {
     cat("\n[OK] Preview complete!\n\n")
     cat("Data info:\n")
+    cat("  Source:", data_source, "\n")
     cat("  Dimensions:", paste(dim(raster_data)[1:2], collapse = " x "), "pixels\n")
     cat("  Extent:", paste(round(as.vector(terra::ext(raster_data)), 2), collapse = ", "), "\n")
     cat("  CRS:", as.character(terra::crs(raster_data)), "\n")
@@ -510,7 +617,9 @@ preview_gaez_map <- function(variable = "RES05-YX",
   if (return_data) {
     return(list(
       map = map_obj,
-      data = raster_data,
+      data = value_data,
+      image = image_data,
+      source = data_source,
       extent = extent_label,
       variable = var_info$variable_name,
       crop = crop_desc,
@@ -548,68 +657,56 @@ create_leaflet_preview <- function(raster_data, map_title, color_palette,
                                     na_color, opacity, verbose,
                                     location = NULL, location_value = NULL,
                                     tile_url = NULL) {
-  
-  # Get valid values for color scale
-  raster_values <- terra::values(raster_data, mat = FALSE)
-  valid_values <- raster_values[!is.na(raster_values)]
 
-  # Filter out nodata values (negative numbers in GAEZ often indicate nodata)
-  # But keep zeros as they represent valid data (zero yield)
-  valid_values <- valid_values[valid_values >= 0]
-
-  if (length(valid_values) == 0) {
-    stop("No valid data values in extent. The region may have no data coverage.\n",
-         "  This could mean:\n",
-         "  - The crop is not grown in this region\n",
-         "  - Data is not available for this crop/scenario combination\n",
-         "  - Try a different crop, time period, or region",
-         call. = FALSE)
-  }
-
-  # Check if all values are zero
-  if (all(valid_values == 0)) {
-    warning("All data values are zero in this extent. ",
-            "The crop may have no suitable cultivation area in this region.",
-            call. = FALSE)
-    # Use a small range for visualization
-    valid_values <- c(0, 1)
-  }
-  
-  # Create color palette
-  pal <- leaflet::colorNumeric(
-    palette = color_palette,
-    domain = range(valid_values, na.rm = TRUE),
-    na.color = na_color
-  )
-  
-  # Convert terra raster to raster package (leaflet compatibility)
-  if (requireNamespace("raster", quietly = TRUE)) {
-    raster_legacy <- raster::raster(raster_data)
-  } else {
-    stop("Package 'raster' is required for leaflet integration. ",
-         "Install with: install.packages('raster')",
-         call. = FALSE)
-  }
-  
-  # Create leaflet map
   map <- leaflet::leaflet() |>
     leaflet::addTiles(group = "OpenStreetMap") |>
     leaflet::addProviderTiles(
       leaflet::providers$Esri.WorldImagery,
       group = "Satellite"
-    ) |>
-    leaflet::addRasterImage(
-      raster_legacy,
-      colors = pal,
-      opacity = opacity,
-      group = "GAEZ Data"
-    ) |>
-    leaflet::addLegend(
-      pal = pal,
-      values = valid_values,
-      title = map_title,
-      position = "bottomright"
     )
+
+  if (terra::has.RGB(raster_data)) {
+    # Server-rendered image: colours come from the FAO style
+    map <- map |>
+      leaflet::addRasterImage(raster_data, opacity = opacity, group = "GAEZ Data") |>
+      leaflet::addControl(
+        html = paste0("<b>", map_title, "</b><br><small>Rendered by the FAO GAEZ v5 WMTS</small>"),
+        position = "bottomright"
+      )
+  } else {
+    raster_values <- terra::values(raster_data, mat = FALSE)
+    valid_values <- raster_values[!is.na(raster_values)]
+
+    # Negative values in GAEZ layers are no-data codes; zeros are valid
+    valid_values <- valid_values[valid_values >= 0]
+
+    if (length(valid_values) == 0) {
+      stop("No valid data values in extent. The region may have no data coverage.\n",
+           "  This could mean:\n",
+           "  - The crop is not grown in this region\n",
+           "  - Data is not available for this crop/scenario combination\n",
+           "  - Try a different crop, time period, or region",
+           call. = FALSE)
+    }
+
+    if (all(valid_values == 0)) {
+      warning("All data values are zero in this extent. ",
+              "The crop may have no suitable cultivation area in this region.",
+              call. = FALSE)
+      valid_values <- c(0, 1)
+    }
+
+    pal <- leaflet::colorNumeric(
+      palette = color_palette,
+      domain = range(valid_values, na.rm = TRUE),
+      na.color = na_color
+    )
+
+    map <- map |>
+      leaflet::addRasterImage(raster_data, colors = pal, opacity = opacity, group = "GAEZ Data") |>
+      leaflet::addLegend(pal = pal, values = valid_values, title = map_title,
+                         position = "bottomright")
+  }
 
   overlays <- "GAEZ Data"
   if (!is.null(tile_url)) {
@@ -634,12 +731,12 @@ create_leaflet_preview <- function(raster_data, map_title, color_palette,
     overlayGroups = overlays,
     options = leaflet::layersControlOptions(collapsed = FALSE)
   )
-  
+
   if (verbose) {
     cat("  Interactive leaflet map created\n")
   }
-  
-  return(map)
+
+  map
 }
 
 
@@ -658,12 +755,16 @@ create_leaflet_preview <- function(raster_data, map_title, color_palette,
 create_static_preview <- function(raster_data, map_title, color_palette, verbose,
                                   location = NULL) {
   
-  terra::plot(
-    raster_data,
-    main = map_title,
-    col = hcl.colors(100, color_palette),
-    axes = TRUE
-  )
+  if (terra::has.RGB(raster_data)) {
+    terra::plotRGB(raster_data, r = 1, g = 2, b = 3, a = 4, axes = TRUE, main = map_title)
+  } else {
+    terra::plot(
+      raster_data,
+      main = map_title,
+      col = hcl.colors(100, color_palette),
+      axes = TRUE
+    )
+  }
   if (!is.null(location)) {
     terra::points(terra::vect(matrix(location, ncol = 2), crs = "EPSG:4326"),
                   pch = 3, cex = 1.5, lwd = 2)

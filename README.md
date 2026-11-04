@@ -7,7 +7,7 @@ An R package for downloading, processing, and analyzing Global Agro-Ecological Z
 ### Core Functionality
 
 -   🚀 **Simple Data Loading**: One-function workflow with `load_gaez_data()`
--   🗺️ **Interactive Map Previews**: Fast visualization read from cloud-optimized GeoTIFFs with `preview_gaez_map()`
+-   🗺️ **Interactive Map Previews**: Server-rendered GAEZ v5 maps from the FAO map service (WMTS) with `preview_gaez_map()`
 -   🌍 **Country-Level Cropping**: Automatic spatial subsetting to country boundaries
 -   📦 **Batch Processing**: Download and combine multiple datasets efficiently
 -   💾 **NetCDF Export**: Efficient multi-layer data storage
@@ -133,7 +133,7 @@ niger_timeseries <- combine_gaez_batch(
 
 ### Data Preview & Exploration
 
--   **`preview_gaez_map()`** - Interactive map previews read from cloud-optimized GeoTIFF overviews (no full download)
+-   **`preview_gaez_map()`** - Interactive map previews from the FAO WMTS, with cloud-optimized GeoTIFF fallback (no full download)
 
 ### Data Loading & Processing
 
@@ -439,7 +439,7 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 -   Theme 2-3 future periods require an individual climate model (FAO publishes no ENSEMBLE layers)
 -   `resolution = "1km"` selects the ~1 km layers; `class` selects per-class theme-1 rasters
 -   Failed downloads no longer leave files behind or count as successes
--   `preview_gaez_map()` reads GAEZ v5 overviews from the FAO bucket instead of the GAEZ v4 ImageServer
+-   `preview_gaez_map()` uses the FAO GAEZ v5 WMTS instead of the GAEZ v4 ImageServer, with cloud-optimized GeoTIFF fallback
 -   `preview_gaez_map(location = c(lon, lat))` and `gaez_wmts_url()` for FAO WMTS tiles
 -   Crop codes updated to FAO's current lists (avocado, teff, fonio, okra, taro and others)
 
