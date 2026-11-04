@@ -19,7 +19,8 @@ download_gaez_dataset(
   overwrite = FALSE,
   validate_inputs = TRUE,
   verbose = TRUE,
-  interactive = TRUE
+  interactive = TRUE,
+  class = NULL
 )
 }
 \arguments{
@@ -43,7 +44,8 @@ Default is "RES05-YX" (attainable yield).}
 
 \item{water_supply}{Character - Water supply code (default: "WSR")}
 
-\item{resolution}{Character - Resolution ("1km", "10km", or NA)}
+\item{resolution}{Character - Resolution ("1km", "10km", or NA). See
+\code{build_gaez_url()}.}
 
 \item{download_dir}{Character - Custom download directory. If NULL, uses
 "Data/GAEZ/" or creates it if it doesn't exist.}
@@ -59,6 +61,9 @@ If FALSE and file exists, returns immediately without downloading.}
 \item{interactive}{Logical - Whether to prompt for user input when multiple
 matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 to automatically select the best match without prompting.}
+
+\item{class}{Character - Class code for per-class theme-1 variables
+("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.}
 }
 \value{
 A list with the following elements:
@@ -74,10 +79,9 @@ A list with the following elements:
 }
 }
 \description{
-Downloads a GAEZ v5 dataset from Google Cloud Storage with comprehensive
-validation, duplicate detection, and progress reporting. Supports automatic
-resumption if files already exist and intelligent path resolution across
-multiple common locations.
+Downloads a GAEZ v5 dataset from Google Cloud Storage with parameter
+validation and progress reporting. Existing files are reused, and interrupted
+transfers resume from the partial file.
 }
 \details{
 The function performs the following steps:
@@ -85,10 +89,14 @@ The function performs the following steps:
 \item Builds the download URL using \code{build_gaez_url()}
 \item Determines the download directory and checks for existing files
 in multiple common locations
-\item Performs a HEAD request to validate the URL exists
-\item Downloads the file with progress reporting
-\item Validates the downloaded file (checks file size, extension)
+\item Downloads to a temporary \code{.part} file, which is renamed only
+after an HTTP 200 response whose byte count matches the server's size.
+Error responses leave no file behind; an interrupted transfer keeps the
+\code{.part} file and resumes on the next call.
 }
+
+Existing files that are not GeoTIFFs (for example, error pages saved by
+earlier package versions) are downloaded again.
 
 The function automatically searches for existing downloads in:
 \itemize{

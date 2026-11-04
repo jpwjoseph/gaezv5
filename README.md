@@ -7,7 +7,7 @@ An R package for downloading, processing, and analyzing Global Agro-Ecological Z
 ### Core Functionality
 
 -   🚀 **Simple Data Loading**: One-function workflow with `load_gaez_data()`
--   🗺️ **Interactive Map Previews**: Fast visualization via REST API with `preview_gaez_map()`
+-   🗺️ **Interactive Map Previews**: Fast visualization read from cloud-optimized GeoTIFFs with `preview_gaez_map()`
 -   🌍 **Country-Level Cropping**: Automatic spatial subsetting to country boundaries
 -   📦 **Batch Processing**: Download and combine multiple datasets efficiently
 -   💾 **NetCDF Export**: Efficient multi-layer data storage
@@ -65,7 +65,26 @@ maize <- load_gaez_data(
   time_period = "HP0120"  # 2001-2020
 )
 
-terra:plot(maize, main = "Global Maize Yield (2001-2020)")
+terra::plot(maize, main = "Global Maize Yield (2001-2020)")
+```
+
+### Themes 1-2, Time Series and ~1 km Layers
+
+``` r
+# Theme 1: single maps, or one raster per class
+aez <- load_gaez_data(variable = "AEZ57")
+cropland <- load_gaez_data(variable = "LR-LCC", class = "LC02")  # share of cropland
+
+# Themes 2-3 have no ENSEMBLE layers: future periods need an individual climate model
+prc <- load_gaez_data(variable = "RES01-PRC", time_period = "FP4160",
+                      climate_model = "MRI-ESM2-0", ssp = "SSP370")
+
+# Annual time series (1980-2022)
+prc_2010 <- load_gaez_data(variable = "RES01-PRC-TS", start_year = 2010)
+
+# ~1 km layers (historical periods HP8100 and HP0120)
+suit_1km <- load_gaez_data(variable = "RES05-SX", crop = "maize",
+                           time_period = "HP0120", resolution = "1km")
 ```
 
 ### Load Country-Level Data
@@ -107,7 +126,7 @@ niger_timeseries <- combine_gaez_batch(
 
 ### Data Preview & Exploration
 
--   **`preview_gaez_map()`** - Interactive map previews via REST API (no download needed)
+-   **`preview_gaez_map()`** - Interactive map previews read from cloud-optimized GeoTIFF overviews (no full download)
 
 ### Data Loading & Processing
 
@@ -368,38 +387,21 @@ data <- load_gaez_data(
 
 ## Planned Features
 
-### Additional REST API Functions (Coming in v0.2.1)
+Planned for v0.3:
 
-Expand REST API capabilities beyond map previews:
+-   Catalog-driven file lookup from FAO's published code lists and the bucket listing
+-   Reading country and bounding-box windows directly from cloud-optimized GeoTIFFs
+-   Point extraction and regional statistics without full downloads
 
-**Functions in development**:
-- `query_gaez_value()` - Extract pixel values at specific coordinates
-- `sample_gaez_data()` - Batch sampling at multiple locations for validation
-- `get_gaez_stats()` - Regional summary statistics without processing large files
-
-**Benefits**:
-- Point-based data extraction without downloading full rasters
-- Perfect for model validation at field trial locations
-- Quick country/regional statistics for reports
-- Lightweight API queries instead of large file downloads
-
-**Example usage** (planned):
-```r
-# Extract values at field trial locations
-coords <- data.frame(lon = c(2.1, 3.5), lat = c(13.5, 14.2))
-values <- query_gaez_value(crop = "MZE", coordinates = coords)
-
-# Get country statistics without download
-stats <- get_gaez_stats(crop = "MZE", region = "Niger")
-```
+The full plan is in [dev/DATA_ACCESS_REVIEW.md](dev/DATA_ACCESS_REVIEW.md).
 
 See [NEWS.md](NEWS.md) for complete roadmap.
 
 ## Data Sources
 
-All data is sourced from the FAO GAEZ v5 Data Portal:
+All data is sourced from the FAO GAEZ v5 platform:
 
--   **Portal**: https://gaez.fao.org/
+-   **Platform**: https://data.apps.fao.org/gaez/
 -   **Model Documentation**: https://github.com/un-fao/gaezv5/wiki
 -   **Google Cloud Storage**: https://storage.googleapis.com/fao-gismgr-gaez-v5-data/
 
@@ -424,10 +426,18 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 
 ## Version History
 
-### v0.2.0 - Interactive Map Previews via REST API
+### v0.2.1 - Data Access Fixes
+
+-   Downloads for themes 1, 2 and annual time series, with corrected file paths
+-   Theme 2-3 future periods require an individual climate model (FAO publishes no ENSEMBLE layers)
+-   `resolution = "1km"` selects the ~1 km layers; `class` selects per-class theme-1 rasters
+-   Failed downloads no longer leave files behind or count as successes
+-   `preview_gaez_map()` reads GAEZ v5 overviews from the FAO bucket instead of the GAEZ v4 ImageServer
+-   Crop codes updated to FAO's current lists (avocado, teff, fonio, okra, taro and others)
+
+### v0.2.0 - Interactive Map Previews
 
 -   🗺️ NEW: `preview_gaez_map()` - Interactive leaflet maps without downloading full datasets
--   ⚡ 100-300x faster data exploration via FAO ImageServer REST API
 -   🌍 Support for global, country-level, and custom bounding box previews
 -   🎨 Automatic color scaling with 10-class diverging palettes
 -   📦 Added `leaflet` dependency for interactive maps
@@ -469,7 +479,7 @@ See [NEWS.md](NEWS.md) for complete changelog.
 
 ## See Also
 
--   [GAEZ v5 Portal](https://gaez.fao.org/) - Official data portal
+-   [GAEZ v5 Platform](https://data.apps.fao.org/gaez/) - Official data platform
 -   [GAEZ v5 Wiki](https://github.com/un-fao/gaezv5/wiki) - Model documentation
 -   [terra](https://rspatial.org/terra/) - Spatial data handling in R
 -   [geodata](https://github.com/rspatial/geodata) - Geographic data access

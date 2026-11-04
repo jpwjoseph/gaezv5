@@ -18,6 +18,9 @@
 #'     \item Historical: "HIST" (automatically set)
 #'     \item Future: "SSP126", "SSP370", "SSP585"
 #'   }
+#' @param theme Numeric - Optional GAEZ theme number. Themes 2 and 3 publish no
+#'   ENSEMBLE layers, so future periods of these themes require an individual
+#'   climate model.
 #'
 #' @return A list with two elements:
 #'   \itemize{
@@ -27,8 +30,8 @@
 #'
 #' @details
 #' Historical periods (HP*) only work with the AGERA5 climate model and HIST
-#' scenario. Future periods (FP*) require a climate model (default: ENSEMBLE)
-#' and an SSP scenario (SSP126, SSP370, or SSP585).
+#' scenario. Future periods (FP*) require a climate model (default: ENSEMBLE,
+#' except for themes 2 and 3) and an SSP scenario (SSP126, SSP370, or SSP585).
 #'
 #' @examples
 #' \dontrun{
@@ -46,7 +49,8 @@
 #' @importFrom stringr str_starts
 validate_climate_ssp <- function(time_period,
                                   climate_model = NULL,
-                                  ssp = "SSP370") {
+                                  ssp = "SSP370",
+                                  theme = NULL) {
   # Input validation
   if (missing(time_period) || is.null(time_period) || time_period == "") {
     stop("time_period is required", call. = FALSE)
@@ -65,7 +69,15 @@ validate_climate_ssp <- function(time_period,
 
   # Handle climate model validation
   if (is_future) {
-    # Future periods
+    no_ensemble <- !is.null(theme) && theme %in% c(2, 3)
+    if (no_ensemble && (is.null(climate_model) || climate_model == "ENSEMBLE")) {
+      stop(
+        "GAEZ v5 publishes no ENSEMBLE layers for theme ", theme,
+        " (future periods). Set climate_model to one of: ",
+        "GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL",
+        call. = FALSE
+      )
+    }
     if (is.null(climate_model)) {
       climate_model <- "ENSEMBLE"
       message(
@@ -371,6 +383,8 @@ lookup_time_period_from_years <- function(start_year = NULL,
 #' @param variable Character - Variable code (e.g., "RES05-YX"). Must be a valid
 #'   GAEZ variable code.
 #' @param time_period Character - Time period code (e.g., "HP0120", "FP4160").
+#' @param start_year,end_year Numeric - Optional years used to look up the time
+#'   period (or the year of a time-series layer). See \code{build_gaez_url()}.
 #' @param climate_model Character - Climate model name (e.g., "ENSEMBLE", "AGERA5").
 #' @param ssp Character - SSP scenario code (e.g., "SSP370", "HIST").
 #' @param crop Character - Crop name or code.
@@ -378,6 +392,9 @@ lookup_time_period_from_years <- function(start_year = NULL,
 #'   (e.g., "HRLM", "HILM").
 #' @param water_supply Character - Water supply code for themes 5-6
 #'   (e.g., "WSR", "WSI", "WST").
+#' @param resolution Character - "1km", "10km", or NA. See \code{build_gaez_url()}.
+#' @param class Character - Class code for per-class theme-1 variables
+#'   ("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.
 #' @param interactive Logical - Whether to allow interactive selection when
 #'   multiple matches are found. Default is TRUE.
 #' @param verbose Logical - Whether to print validation progress. Default is TRUE.
@@ -392,6 +409,9 @@ lookup_time_period_from_years <- function(start_year = NULL,
 #'     \item \code{water_management_level}: Validated water management code (themes 3-4)
 #'     \item \code{water_supply}: Validated water supply code (themes 5-6)
 #'     \item \code{theme_number}: Theme number from variable info
+#'     \item \code{class}, \code{year}: Class code (per-class theme-1
+#'       variables) and year (time-series variables), NA otherwise
+#'     \item \code{url}: Download URL of the requested layer
 #'   }
 #'
 #' @details
@@ -416,7 +436,7 @@ lookup_time_period_from_years <- function(start_year = NULL,
 #' }
 #'
 #' @examples
-#' \dontrun
+#' \dontrun{
 #' # Valid combination for theme 4 (suitability/yield)
 #' params <- validate_gaez_parameters(
 #'   variable = "RES05-YX",
@@ -452,202 +472,50 @@ validate_gaez_parameters <- function(variable,
                                       water_management_level = "HRLM",
                                       water_supply = "WSR",
                                       interactive = TRUE,
-                                      verbose = TRUE) {
-  
-  # Normalize inputs to uppercase
-  variable <- toupper(variable)
-  crop <- toupper(crop)
-  if (!is.null(climate_model)) climate_model <- toupper(climate_model)
-  if (!is.null(ssp)) ssp <- toupper(ssp)
-  water_management_level <- toupper(water_management_level)
-  water_supply <- toupper(water_supply)
-  
-  # ===========================
-  # 1. Validate variable
-  # ===========================
-  var_info <- lookup_gaez_variable(variable)
-  theme_number <- var_info$theme_number
-  
-  # ===========================
-  # 2. Validate crop (themes 3-6)
-  # ===========================
-  crop_code <- NULL
-  if (theme_number %in% c(3, 4, 5, 6)) {
-    crop_code <- lookup_gaez_crop(crop, theme_number, interactive = interactive)
-  } else {
-    crop_code <- NA_character_
-  }
-  
-  # ===========================
-  # 3. Validate time period
-  # ===========================
-  time_period <- lookup_time_period_from_years(
+                                      verbose = TRUE,
+                                      resolution = NA,
+                                      class = NULL) {
+  req <- resolve_gaez_request(
+    variable = variable,
+    time_period = time_period,
     start_year = start_year,
     end_year = end_year,
-    time_period = time_period,
+    climate_model = climate_model,
+    ssp = ssp,
+    crop = crop,
+    water_management_level = water_management_level,
+    water_supply = water_supply,
+    resolution = resolution,
+    class = class,
     interactive = interactive,
     verbose = verbose
   )
-  
-  # ===========================
-  # 4. Validate climate model and SSP
-  # ===========================
-  # Themes 5 and 6 don't use time-varying climate data
-  if (theme_number %in% c(5, 6)) {
-    # Theme 5-6: Actual yields/gaps don't use climate models or time periods
-    # These are static datasets, so set all time-related parameters to NA
-    time_period <- NA_character_
-    climate_model <- NA_character_
-    ssp <- NA_character_
-  } else if (theme_number %in% c(1)) {
-    # Theme 1: Static land resources, no climate/time variation
-    time_period <- NA_character_
-    climate_model <- NA_character_
-    ssp <- NA_character_
-  } else {
-    # Themes 2, 3, 4: Use climate models and SSPs
-    validation_result <- validate_climate_ssp(time_period, climate_model, ssp)
-    climate_model <- validation_result$climate_model
-    ssp <- validation_result$ssp
-  }
-  
-  # ===========================
-  # 5. Validate water management (themes 3-4)
-  # ===========================
-  if (theme_number %in% c(3, 4)) {
-    valid_water_management <- c("HRLM", "HILM", "LRLM", "LILM")
-    
-    if (!water_management_level %in% valid_water_management) {
-      # Get descriptions for helpful message
-      wm_scenarios <- gaez_scenarios |>
-        dplyr::filter(!is.na(water_management_code)) |>
-        dplyr::select(water_management_code, description)
-      
-      error_msg <- paste0(
-        "Invalid water_management_level: '", water_management_level, "'\n\n",
-        "Valid options for themes 3-4:\n"
-      )
-      
-      for (i in seq_len(nrow(wm_scenarios))) {
-        error_msg <- paste0(
-          error_msg,
-          "  - ", wm_scenarios$water_management_code[i], 
-          ": ", wm_scenarios$description[i], "\n"
-        )
-      }
-      
-      error_msg <- paste0(
-        error_msg,
-        "\nUse list_gaez_scenarios('water_management') for more details."
-      )
-      
-      stop(error_msg, call. = FALSE)
-    }
-  }
-  
-  # ===========================
-  # 6. Validate water supply (themes 5-6)
-  # ===========================
-  if (theme_number %in% c(5, 6)) {
-    valid_water_supply <- c("WSR", "WSI", "WST")
-    
-    if (!water_supply %in% valid_water_supply) {
-      # Get descriptions for helpful message
-      ws_scenarios <- gaez_scenarios |>
-        dplyr::filter(!is.na(water_supply)) |>
-        dplyr::select(water_supply, description)
-      
-      error_msg <- paste0(
-        "Invalid water_supply: '", water_supply, "'\n\n",
-        "Valid options for themes 5-6:\n"
-      )
-      
-      for (i in seq_len(nrow(ws_scenarios))) {
-        error_msg <- paste0(
-          error_msg,
-          "  - ", ws_scenarios$water_supply[i],
-          ": ", ws_scenarios$description[i], "\n"
-        )
-      }
-      
-      error_msg <- paste0(
-        error_msg,
-        "\nUse list_gaez_scenarios('water_supply') for more details."
-      )
-      
-      stop(error_msg, call. = FALSE)
-    }
-  }
-  
-  # ===========================
-  # 7. Validate theme-specific parameter requirements
-  # ===========================
-  url_structure <- gaez_url_structure |>
-    dplyr::filter(theme == theme_number) |>
-    dplyr::pull(filename_parts) |>
-    dplyr::first()
-  
-  if (!is.null(url_structure) && is.list(url_structure) && length(url_structure) > 0) {
-    required_parts <- url_structure[[1]]
-    
-    # Check themes 3-4 require water_management, not water_supply
-    if ("water_management" %in% required_parts && theme_number %in% c(3, 4)) {
-      # Already validated above
-      if (verbose) {
-        cat("  Theme", theme_number, "uses water_management_level:", water_management_level, "\n")
-      }
-    }
-    
-    # Check themes 5-6 require water_supply, not water_management
-    if ("water_supply" %in% required_parts && theme_number %in% c(5, 6)) {
-      # Already validated above
-      if (verbose) {
-        cat("  Theme", theme_number, "uses water_supply:", water_supply, "\n")
-      }
-    }
-    
-    # Check if time_period/climate/ssp are required but theme doesn't support them
-    if ("time_period" %in% required_parts && theme_number %in% c(5, 6)) {
-      # This shouldn't happen based on url_structure, but check anyway
-      warning(
-        "Theme ", theme_number, " does not use time periods. ",
-        "Time period parameter will be ignored.",
-        call. = FALSE
-      )
-    }
-  }
-  
-  # ===========================
-  # Return validated parameters
-  # ===========================
+
   if (verbose) {
-    cat("  Variable:", var_info$variable_name, "\n")
-    cat("  Crop:", crop_code, "\n")
-    if (!is.na(time_period) && theme_number %in% c(2, 3, 4)) {
-      cat("  Time period:", time_period, "\n")
+    cat("  Variable:", req$var_info$variable_name, "\n")
+    if (!is.na(req$class)) cat("  Class:", req$class, "\n")
+    if (!is.na(req$year)) cat("  Year:", req$year, "\n")
+    if (!is.na(req$crop_code)) cat("  Crop:", req$crop_code, "\n")
+    if (!is.na(req$time_period)) cat("  Time period:", req$time_period, "\n")
+    if (!is.na(req$climate_model)) cat("  Climate model:", req$climate_model, "\n")
+    if (!is.na(req$ssp)) cat("  SSP:", req$ssp, "\n")
+    if (!is.na(req$water_management_level)) {
+      cat("  Water management:", req$water_management_level, "\n")
     }
-    if (!is.na(climate_model)) {
-      cat("  Climate model:", climate_model, "\n")
-    }
-    if (!is.na(ssp)) {
-      cat("  SSP:", ssp, "\n")
-    }
-    if (theme_number %in% c(3, 4)) {
-      cat("  Water management:", water_management_level, "\n")
-    }
-    if (theme_number %in% c(5, 6)) {
-      cat("  Water supply:", water_supply, "\n")
-    }
+    if (!is.na(req$water_supply)) cat("  Water supply:", req$water_supply, "\n")
   }
-  
-  return(list(
-    var_info = var_info,
-    crop_code = crop_code,
-    time_period = time_period,
-    climate_model = climate_model,
-    ssp = ssp,
-    water_management_level = water_management_level,
-    water_supply = water_supply,
-    theme_number = theme_number
-  ))
+
+  list(
+    var_info = req$var_info,
+    crop_code = req$crop_code,
+    time_period = req$time_period,
+    climate_model = req$climate_model,
+    ssp = req$ssp,
+    water_management_level = req$water_management_level,
+    water_supply = req$water_supply,
+    theme_number = req$theme_number,
+    class = req$class,
+    year = req$year,
+    url = gaez_request_url(req)
+  )
 }

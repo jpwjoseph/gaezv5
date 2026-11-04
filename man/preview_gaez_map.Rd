@@ -27,7 +27,8 @@ preview_gaez_map(
   verbose = TRUE,
   color_palette = "YlOrRd",
   na_color = "transparent",
-  opacity = 0.7
+  opacity = 0.7,
+  class = NULL
 )
 }
 \arguments{
@@ -35,39 +36,43 @@ preview_gaez_map(
 (attainable yield). Use \code{lookup_gaez_variable()} to find variable codes.}
 
 \item{time_period}{Character - Time period code. Default is "FP4160" (2041-2060).
-Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100"}
+Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100".
+For annual time-series variables (codes ending in "-TS") a year such as
+"2010" is accepted.}
 
 \item{start_year}{Numeric - Start year for time period lookup (optional). Can be
 provided alone or with end_year. If only start_year is given, returns the time
 period containing that year. If both years are provided and span multiple periods,
-prompts for selection. Must be between 1981-2100.}
+prompts for selection. Must be between 1981-2100. For time-series variables,
+the year of the layer (1980-2022).}
 
 \item{end_year}{Numeric - End year for time period lookup (optional). Can be
 provided alone or with start_year. If only end_year is given, returns the time
 period containing that year. Must be between 1981-2100.}
 
-\item{climate_model}{Character - Climate model. NULL for auto-selection based
-on time period. Historical periods use "AGERA5", future periods default to
-"ENSEMBLE". Other options: "GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR",
-"MRI-ESM2-0", "UKESM1-0-LL"}
+\item{climate_model}{Character - Climate model. NULL for auto-selection:
+historical periods use "AGERA5"; future periods of theme 4 use "ENSEMBLE".
+Themes 2 and 3 have no ENSEMBLE layers, so future periods require one of
+"GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR", "MRI-ESM2-0", "UKESM1-0-LL".}
 
 \item{ssp}{Character - SSP scenario. Default is "SSP370". Historical periods
 use "HIST". Future periods use "SSP126", "SSP370", or "SSP585".}
 
 \item{crop}{Character - Crop name or code. Default is "WHEA" (wheat).
-Use \code{lookup_gaez_crop()} to find crop codes.}
+Use \code{lookup_gaez_crop()} to find crop codes. Ignored for themes 1 and 2.}
 
-\item{water_management_level}{Character - Water management code. Default is
-"HRLM" (High input, Rain-fed, Low management). Other options: "HILM"
-(irrigated), "LRLM" (low input, rain-fed), "LILM" (low input, irrigated).}
+\item{water_management_level}{Character - Input/management code for themes
+3-4. Default is "HRLM" (rain-fed, high input). Other options: "HILM"
+(irrigated, high input), "LRLM" (rain-fed, low input), "LILM" (irrigated,
+low input).}
 
 \item{water_supply}{Character - Water supply code for actual yields/gaps
 (themes 5-6). Default is "WSR" (rain-fed). Other options: "WSI" (irrigated),
 "WST" (total).}
 
-\item{resolution}{Character - Resolution preference. Options: "1km", "10km", or
-NA (uses default for variable). Note: not all variables have multiple
-resolutions.}
+\item{resolution}{Character - "1km", "10km", or NA. NA selects the 10 km layer
+when a variable exists at both resolutions. The ~1 km layers of theme 4 cover
+the historical periods HP8100 and HP0120 only.}
 
 \item{country}{Character, SpatVector, or NULL - Geographic extent for preview.
 \itemize{
@@ -112,6 +117,9 @@ See ?leaflet::colorNumeric for more options.}
 \item{na_color}{Character - Color for NA values (default: "transparent")}
 
 \item{opacity}{Numeric - Overlay opacity (0-1, default: 0.7)}
+
+\item{class}{Character - Class code for per-class theme-1 variables
+("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.}
 }
 \value{
 Depends on viewer type:
@@ -119,22 +127,26 @@ Depends on viewer type:
 \item "leaflet": A leaflet map object
 \item "static": Returns NULL invisibly (displays plot)
 }
-If return_data = TRUE, returns a list with map and raster data.
+If return_data = TRUE, returns a list with map and raster data. The raster
+has preview resolution; use \code{load_gaez_data()} for full resolution.
 }
 \description{
 Creates an interactive leaflet map preview of GAEZ v5 data without requiring
-full dataset downloads. Attempts to use the GAEZ ImageServer REST API when
-available, otherwise falls back to downloading and cropping the full dataset.
-Supports both global and country-level previews.
+full dataset downloads. Reads a reduced-resolution version of the layer
+directly from the Cloud-Optimized GeoTIFF in the FAO bucket, and falls back
+to downloading the full file when the remote read fails. Supports global,
+country-level and bounding-box previews.
 }
 \details{
 \subsection{Preview Strategy}{
 
-The function uses a two-tier strategy:
-\enumerate{
-\item \strong{REST API} (fast, no download): For all themes (1-6) when available
-\item \strong{Download fallback} (slower, requires disk space): When REST API fails
-}
+GAEZ v5 rasters are Cloud-Optimized GeoTIFFs with internal overviews. The
+function opens the remote file through GDAL (\code{/vsicurl/}), selects the
+coarsest overview that still provides about \code{width} pixels across the
+requested extent, and reads only that window. A global preview of a ~1 km
+layer transfers well under 1 MB. If the remote read fails (for example,
+GDAL built without network support), the full file is downloaded with
+\code{load_gaez_data()} instead.
 }
 
 \subsection{Geographic Extents}{

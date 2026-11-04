@@ -330,6 +330,7 @@ GAEZ v5 data is organized into **themes**, each with different parameter require
 | Parameter | Required? | Valid Values |
 |-----------|-----------|--------------|
 | variable | ✓ | Theme 1 variable codes (e.g., soil, terrain) |
+| class | for LR-LCC, LR-SLC | LC01-LC12 (land cover), SC01-SC10 (slope class) |
 | time_period | ✗ | Not used |
 | climate_model | ✗ | Not used |
 | ssp | ✗ | Not used |
@@ -342,8 +343,8 @@ GAEZ v5 data is organized into **themes**, each with different parameter require
 | Parameter | Required? | Valid Values |
 |-----------|-----------|--------------|
 | variable | ✓ | Theme 2 variable codes (e.g., temperature, LGP) |
-| time_period | ✓ | HP8100, HP0120, FP2140, FP4160, FP6180, FP8100 |
-| climate_model | ✓ | AGERA5 (historical) or ENSEMBLE/GCMs (future) |
+| time_period | ✓ | HP8100, HP0120, FP2140, FP4160, FP6180, FP8100; a year (1980-2022) for "-TS" variables |
+| climate_model | ✓ | AGERA5 (historical) or one of the five GCMs (future; no ENSEMBLE) |
 | ssp | ✓ | HIST (historical) or SSP126/SSP370/SSP585 (future) |
 | crop | ✗ | Not used |
 | water_management | ✗ | Not used |
@@ -355,7 +356,8 @@ GAEZ v5 data is organized into **themes**, each with different parameter require
 |-----------|-----------|--------------|
 | variable | ✓ | RES02-* (theme 3) or RES05-* (theme 4) |
 | time_period | ✓ | HP8100, HP0120, FP2140, FP4160, FP6180, FP8100 |
-| climate_model | ✓ | AGERA5 (historical) or ENSEMBLE/GCMs (future) |
+| climate_model | ✓ | AGERA5 (historical); future: GCMs (theme 3) or ENSEMBLE/GCMs (theme 4) |
+| resolution | optional | "1km" selects ~1 km theme-4 layers (HP8100, HP0120 only) |
 | ssp | ✓ | HIST (historical) or SSP126/SSP370/SSP585 (future) |
 | crop | ✓ | 4-letter codes (theme 3) or 3-letter codes (theme 4) |
 | water_management | ✓ | HRLM, HILM, LRLM, LILM |
@@ -385,16 +387,19 @@ GAEZ v5 data is organized into **themes**, each with different parameter require
 | FP8100 | ENSEMBLE or GCM | SSP126/SSP370/SSP585 | End of century 2081-2100 |
 
 **Available GCMs for future periods:**
-GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL
+GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0, UKESM1-0-LL.
+ENSEMBLE layers exist for theme 4 only.
 
 ### Water Management Codes (Themes 3-4)
 
-| Code | Input Level | Water Source | Management |
-|------|-------------|--------------|------------|
-| HRLM | High | Rainfed | Low |
-| HILM | High | Irrigated | Low |
-| LRLM | Low | Rainfed | Low |
-| LILM | Low | Irrigated | Low |
+All four codes assume an available soil water content of 200 mm/m.
+
+| Code | Input Level | Water Supply |
+|------|-------------|--------------|
+| HRLM | High | Rain-fed |
+| HILM | High | Irrigated |
+| LRLM | Low | Rain-fed |
+| LILM | Low | Irrigated |
 
 ### Water Supply Codes (Themes 5-6)
 
@@ -480,7 +485,7 @@ help(package = "gaezv5")
 
 ## Further Reading
 
--   [GAEZ v5 Portal](https://gaez.fao.org/)
+-   [GAEZ v5 Platform](https://data.apps.fao.org/gaez/)
 -   [Package GitHub](https://github.com/jpwjoseph/gaezv5)
 -   [Report Issues](https://github.com/jpwjoseph/gaezv5/issues)
 

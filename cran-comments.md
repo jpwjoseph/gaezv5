@@ -66,7 +66,7 @@ These functions require internet access to Google Cloud Storage and FAO ImageSer
 ### Package Purpose
 
 gaezv5 is a data access and processing tool for the GAEZ v5 dataset. Key features include:
-- Interactive map previews via REST API (100-300x faster than full downloads)
+- Interactive map previews read from cloud-optimized GeoTIFF overviews (no full download)
 - Batch downloading with parallel processing
 - Country-level spatial subsetting
 - Comprehensive validation and error handling
@@ -94,7 +94,6 @@ No platform-specific code; uses only cross-platform R packages and functions.
 
 The package interacts with legitimate, stable external services:
 - **Google Cloud Storage**: GAEZ data repository (read-only)
-- **FAO ImageServer REST API**: Map tile service (read-only)
 - **GADM Database**: Country boundary data (via geodata package)
 
 All external calls include:

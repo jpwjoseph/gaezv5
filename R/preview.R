@@ -1,9 +1,10 @@
 #' Preview GAEZ Data as Interactive Map
 #'
 #' Creates an interactive leaflet map preview of GAEZ v5 data without requiring
-#' full dataset downloads. Attempts to use the GAEZ ImageServer REST API when
-#' available, otherwise falls back to downloading and cropping the full dataset.
-#' Supports both global and country-level previews.
+#' full dataset downloads. Reads a reduced-resolution version of the layer
+#' directly from the Cloud-Optimized GeoTIFF in the FAO bucket, and falls back
+#' to downloading the full file when the remote read fails. Supports global,
+#' country-level and bounding-box previews.
 #'
 #' @inheritParams build_gaez_url
 #' @inheritParams load_gaez_data
@@ -34,20 +35,27 @@
 #'   See ?leaflet::colorNumeric for more options.
 #' @param na_color Character - Color for NA values (default: "transparent")
 #' @param opacity Numeric - Overlay opacity (0-1, default: 0.7)
+#' @param class Character - Class code for per-class theme-1 variables
+#'   ("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.
 #'
 #' @return Depends on viewer type:
 #'   \itemize{
 #'     \item "leaflet": A leaflet map object
 #'     \item "static": Returns NULL invisibly (displays plot)
 #'   }
-#'   If return_data = TRUE, returns a list with map and raster data.
+#'   If return_data = TRUE, returns a list with map and raster data. The raster
+#'   has preview resolution; use \code{load_gaez_data()} for full resolution.
 #'
 #' @details
 #' ## Preview Strategy
 #'
-#' The function uses a two-tier strategy:
-#' 1. **REST API** (fast, no download): For all themes (1-6) when available
-#' 2. **Download fallback** (slower, requires disk space): When REST API fails
+#' GAEZ v5 rasters are Cloud-Optimized GeoTIFFs with internal overviews. The
+#' function opens the remote file through GDAL (\code{/vsicurl/}), selects the
+#' coarsest overview that still provides about \code{width} pixels across the
+#' requested extent, and reads only that window. A global preview of a ~1 km
+#' layer transfers well under 1 MB. If the remote read fails (for example,
+#' GDAL built without network support), the full file is downloaded with
+#' \code{load_gaez_data()} instead.
 #'
 #' ## Geographic Extents
 #'
@@ -152,7 +160,8 @@ preview_gaez_map <- function(variable = "RES05-YX",
                               verbose = TRUE,
                               color_palette = "YlOrRd",
                               na_color = "transparent",
-                              opacity = 0.7) {
+                              opacity = 0.7,
+                              class = NULL) {
   
   # Match viewer argument
   viewer <- match.arg(viewer)
@@ -211,7 +220,9 @@ preview_gaez_map <- function(variable = "RES05-YX",
     water_management_level = water_management_level,
     water_supply = water_supply,
     interactive = interactive,
-    verbose = verbose
+    verbose = verbose,
+    resolution = resolution,
+    class = class
   )
   
   # Extract validated parameters
@@ -243,7 +254,7 @@ preview_gaez_map <- function(variable = "RES05-YX",
     
     boundary_vector <- get_country_boundary(country, verbose = FALSE)
     # terra::ext returns c(xmin, xmax, ymin, ymax)
-    # but we need c(xmin, ymin, xmax, ymax) for ImageServer
+    # but bbox_coords uses c(xmin, ymin, xmax, ymax)
     ext_vector <- as.vector(terra::ext(boundary_vector))
     bbox_coords <- c(ext_vector[1], ext_vector[3], ext_vector[2], ext_vector[4])
     
@@ -301,146 +312,52 @@ preview_gaez_map <- function(variable = "RES05-YX",
   }
   
   # ====================
-  # ATTEMPT REST API PREVIEW
+  # LOAD PREVIEW DATA
   # ====================
-  
+
   if (verbose) {
     cat("\n[3/5] Loading data...\n")
   }
-  
+
   theme_number <- var_info$theme_number
-  variable_code <- var_info$variable_code
-  use_rest_api <- check_imageserver_availability(theme_number = theme_number,
-                                                   variable_code = variable_code)
-  raster_data <- NULL
-
-  if (use_rest_api) {
-    if (verbose) {
-      cat("  Attempting REST API preview...\n")
-    }
-
-    # Pass both theme_number and variable_code for accurate mapping
-    export_url <- build_imageserver_url(theme_number = theme_number,
-                                        variable_code = variable_code)
-
-    if (!is.na(export_url)) {
-      # Map GAEZ parameters to ImageServer format
-      crop_name <- map_crop_code_to_name(crop_code, theme_number)
-      year_range <- map_time_period_to_year(time_period)
-      model_name <- map_climate_model_to_imageserver(climate_model, time_period)
-      rcp_value <- map_ssp_to_rcp(ssp)
-      water_supply_name <- map_water_supply_to_imageserver(water_supply)
-      input_level_name <- map_input_level_to_imageserver(water_management_level)
-
+  raster_data <- tryCatch(
+    read_gaez_preview(
+      validated$url,
+      bbox = if (extent_label == "Global") NULL else bbox_coords,
+      width = width,
+      boundary = boundary_vector
+    ),
+    error = function(e) {
       if (verbose) {
-        cat("  Mapped parameters for ImageServer:\n")
-        if (!is.na(crop_name)) cat("    Crop:", crop_name, "\n")
-        if (!is.na(year_range)) cat("    Year:", year_range, "\n")
-        if (!is.na(model_name)) cat("    Model:", model_name, "\n")
-        if (!is.na(rcp_value)) cat("    RCP:", rcp_value, "\n")
-        if (!is.na(water_supply_name)) cat("    Water supply:", water_supply_name, "\n")
-        if (!is.na(input_level_name)) cat("    Input level:", input_level_name, "\n")
+        cat("  Remote read failed (", conditionMessage(e), "); downloading the file\n", sep = "")
       }
-
-      temp_file <- fetch_imageserver_tile(
-        export_url = export_url,
-        bbox = bbox_coords,
-        width = width,
-        height = height,
-        crop_name = crop_name,
-        year_range = year_range,
-        model_name = model_name,
-        rcp = rcp_value,
-        water_supply_name = water_supply_name,
-        input_level_name = input_level_name,
-        geometry = boundary_vector,  # Pass polygon for server-side clipping
-        verbose = verbose
-      )
-
-      if (!is.null(temp_file) && file.exists(temp_file)) {
-        # Load raster from REST API
-        raster_data <- terra::rast(temp_file)
-
-        # Ensure CRS is set (ImageServer should provide this, but be safe)
-        if (is.na(terra::crs(raster_data)) || terra::crs(raster_data) == "") {
-          terra::crs(raster_data) <- "EPSG:4326"
-        }
-
-        # Post-process: The ImageServer Clip function sets pixels outside the
-        # polygon to 0 instead of NoData. We need to mask these boundary zeros
-        # to avoid showing a box of zeros around the country.
-        if (!is.null(boundary_vector)) {
-          # Reproject boundary if needed
-          if (!terra::same.crs(boundary_vector, raster_data)) {
-            boundary_vector_proj <- terra::project(boundary_vector, terra::crs(raster_data))
-          } else {
-            boundary_vector_proj <- boundary_vector
-          }
-
-          # Mask: set values outside polygon to NA
-          # This removes the zero-value box around the country
-          raster_data <- terra::mask(raster_data, boundary_vector_proj)
-
-          if (verbose) {
-            cat("  Applied polygon mask to remove boundary artifacts\n")
-          }
-        }
-
-        # Validate that we have some valid data
-        raster_values <- terra::values(raster_data, mat = FALSE)
-        valid_values <- raster_values[!is.na(raster_values) & raster_values > 0]
-
-        if (length(valid_values) == 0) {
-          if (verbose) {
-            cat("  REST API returned no valid data for this extent, using download method...\n")
-          }
-          use_rest_api <- FALSE
-          raster_data <- NULL
-        } else {
-          if (verbose) {
-            cat("  Successfully loaded data via REST API\n")
-          }
-        }
-      } else {
-        if (verbose) {
-          cat("  REST API preview failed, using download method...\n")
-        }
-        use_rest_api <- FALSE
-      }
-    } else {
-      use_rest_api <- FALSE
+      NULL
     }
+  )
+
+  if (!is.null(raster_data) && verbose) {
+    cat("  Read overview from", validated$url, "\n")
   }
-  
-  # ====================
-  # FALLBACK: DOWNLOAD METHOD
-  # ====================
-  
+
   if (is.null(raster_data)) {
-    if (verbose) {
-      cat("  Using download method...\n")
-    }
-    
     result <- load_gaez_data(
-      variable = variable,
-      time_period = time_period,
-      climate_model = climate_model,
-      ssp = ssp,
-      crop = crop_code,  # Use already-resolved crop code to avoid duplicate lookup
-      water_management_level = water_management_level,
-      water_supply = water_supply,
-      country = if (!is.null(country)) country else NULL,
+      variable = var_info$data_code,
+      time_period = if (!is.na(validated$year)) validated$year else time_period,
+      climate_model = if (is.na(climate_model)) NULL else climate_model,
+      ssp = if (is.na(ssp)) "SSP370" else ssp,
+      crop = if (is.na(crop_code)) crop else crop_code,
+      water_management_level = if (is.na(water_management_level)) "HRLM" else water_management_level,
+      water_supply = if (is.na(water_supply)) "WSR" else water_supply,
+      class = class,
+      country = country,
       return_metadata = TRUE,
       verbose = verbose,
       interactive = interactive
     )
-    
+
     raster_data <- result$raster
-    
-    # Crop to bbox if provided and country is NULL
+
     if (!is.null(bbox) && is.null(country)) {
-      # terra::ext() expects (xmin, xmax, ymin, ymax)
-      # bbox_coords is (xmin, ymin, xmax, ymax), so reorder
       ext_obj <- terra::ext(c(bbox_coords[1], bbox_coords[3], bbox_coords[2], bbox_coords[4]))
       raster_data <- terra::crop(raster_data, ext_obj)
     }
@@ -454,20 +371,16 @@ preview_gaez_map <- function(variable = "RES05-YX",
     cat("\n[4/5] Creating visualization...\n")
   }
   
-  # Get descriptive labels
-  crop_desc <- gaez_crops |>
-    dplyr::filter(gaez_crop_code == crop_code, gaez_theme == theme_number) |>
-    dplyr::pull(name) |>
-    dplyr::first()
-  if (is.null(crop_desc) || length(crop_desc) == 0) crop_desc <- crop_code
-  
-  time_desc <- gaez_scenarios |>
-    dplyr::filter(time_period == !!time_period) |>
-    dplyr::pull(description) |>
-    dplyr::first()
-  if (is.null(time_desc) || length(time_desc) == 0) time_desc <- time_period
-  
-  map_title <- paste0(crop_desc, " - ", time_desc)
+  crop_desc <- gaez_crops$name[which(gaez_crops$gaez_crop_code == crop_code &
+                                       gaez_crops$gaez_theme == theme_number)[1]]
+  if (length(crop_desc) == 0 || is.na(crop_desc)) crop_desc <- NA_character_
+
+  time_desc <- gaez_scenarios$description[which(gaez_scenarios$time_period == time_period)[1]]
+  if (length(time_desc) == 0 || is.na(time_desc)) time_desc <- validated$year
+
+  title_parts <- c(if (is.na(crop_desc)) var_info$variable_name else crop_desc,
+                   validated$class, time_desc)
+  map_title <- paste(title_parts[!is.na(title_parts)], collapse = " - ")
   if (extent_label != "Global") {
     map_title <- paste0(map_title, " (", extent_label, ")")
   }
@@ -672,3 +585,78 @@ create_static_preview <- function(raster_data, map_title, color_palette, verbose
   
   return(invisible(NULL))
 }
+
+
+#' GDAL settings for reading remote Cloud-Optimized GeoTIFFs
+#' @noRd
+gdal_http_config <- c(
+  GDAL_DISABLE_READDIR_ON_OPEN = "EMPTY_DIR",
+  CPL_VSIL_CURL_ALLOWED_EXTENSIONS = ".tif",
+  GDAL_HTTP_MULTIRANGE = "YES",
+  GDAL_HTTP_MERGE_CONSECUTIVE_RANGES = "YES",
+  GDAL_HTTP_MAX_RETRY = "3",
+  GDAL_HTTP_RETRY_DELAY = "1"
+)
+
+
+#' Evaluate `expr` with gdal_http_config set, restoring previous values on exit
+#' @noRd
+with_gdal_http <- function(expr) {
+  previous <- terra::getGDALconfig(names(gdal_http_config))
+  terra::setGDALconfig(names(gdal_http_config), unname(gdal_http_config))
+  on.exit(terra::setGDALconfig(names(previous), unname(previous)), add = TRUE)
+  force(expr)
+}
+
+
+#' Coarsest COG overview level that keeps at least `width` pixels across `span`
+#'
+#' Overview k has span / 2^(k + 1) pixels. Returns -1 (full resolution) when
+#' the span is already narrower than about twice the target width.
+#' @noRd
+overview_level <- function(span, width) {
+  max(-1L, as.integer(floor(log2(span / width)) - 1L))
+}
+
+
+#' Read a reduced-resolution window of a remote GAEZ GeoTIFF into memory
+#'
+#' @param url HTTPS URL of a Cloud-Optimized GeoTIFF
+#' @param bbox Optional c(xmin, ymin, xmax, ymax) in the raster's CRS
+#' @param width Target number of pixels across the extent
+#' @param boundary Optional SpatVector used to mask the result
+#' @noRd
+read_gaez_preview <- function(url, bbox = NULL, width = 800, boundary = NULL) {
+  src <- paste0("/vsicurl/", url)
+
+  with_gdal_http({
+    full <- terra::rast(src)
+    span <- if (is.null(bbox)) {
+      terra::ncol(full)
+    } else {
+      ceiling((bbox[3] - bbox[1]) / terra::xres(full))
+    }
+
+    x <- full
+    level <- overview_level(span, width)
+    while (level >= 0) {
+      x <- tryCatch(
+        terra::rast(src, opts = paste0("OVERVIEW_LEVEL=", level)),
+        error = function(e) NULL
+      )
+      if (!is.null(x)) break
+      level <- level - 1L
+    }
+    if (is.null(x)) x <- full
+
+    if (!is.null(bbox)) {
+      x <- terra::crop(x, terra::ext(bbox[1], bbox[3], bbox[2], bbox[4]))
+    }
+    if (!is.null(boundary)) {
+      if (!terra::same.crs(boundary, x)) boundary <- terra::project(boundary, terra::crs(x))
+      x <- terra::mask(x, boundary)
+    }
+    terra::rast(x, vals = terra::values(x))
+  })
+}
+

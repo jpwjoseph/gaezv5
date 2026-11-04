@@ -69,7 +69,7 @@ GAEZ v5 data is organized into 6 themes:
 \section{Learn more}{
 
 \itemize{
-\item GAEZ v5 portal: \url{https://gaez.fao.org/}
+\item GAEZ v5 platform: \url{https://data.apps.fao.org/gaez/}
 \item Package vignettes: \code{browseVignettes("gaezv5")}
 \item Examples: \code{show_gaez_examples()}
 }

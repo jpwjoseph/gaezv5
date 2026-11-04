@@ -9,6 +9,8 @@ library(dplyr)
 library(tidyr)
 library(tibble)
 
+gaez_root <- "https://storage.googleapis.com/fao-gismgr-gaez-v5-data/DATA/GAEZ-V5"
+
 # ==============================================================================
 # GAEZ v5 Variables Table
 # ==============================================================================
@@ -47,7 +49,7 @@ gaez_variables <- tribble(
   "Land Cover",
   "LR-LCC",
   "Share of land cover class",
-  "MAP",
+  "MAPSET",
   "LR-LCC",
   1,
   "Land and Water Resources",
@@ -58,18 +60,32 @@ gaez_variables <- tribble(
   "HWSDV201",
   1,
   "Land and Water Resources",
-  "Terrain Resources",
-  "SOILFER.ELEV-ALOS-30M",
-  "Median elevation",
+  "Soil Resources",
+  "HWSDV22",
+  "Harmonized World Soil Database version 2.2",
   "MAP",
-  "SOILFER.ELEV-ALOS-30M",
+  "HWSDV22",
   1,
   "Land and Water Resources",
   "Terrain Resources",
-  "SOILFER.SLOPE-MED",
+  "ELEV-ALOS-30M",
+  "Median elevation",
+  "MAP",
+  "ELEV-ALOS-30M",
+  1,
+  "Land and Water Resources",
+  "Terrain Resources",
+  "SLOPE-MED",
   "Median slope class",
   "MAP",
-  "SOILFER.SLOPE-MED",
+  "SLOPE-MED",
+  1,
+  "Land and Water Resources",
+  "Terrain Resources",
+  "LR-SLC",
+  "Share of terrain slope class",
+  "MAPSET",
+  "LR-SLC",
   1,
   "Land and Water Resources",
   "Exclusion Areas",
@@ -919,273 +935,100 @@ gaez_variables <- tribble(
   "RES07-QGA"
 )
 
+# Grid resolution: theme-1 maps are ~1 km except AEZ33; *30AS and *-1KM codes are ~1 km.
+gaez_variables <- gaez_variables |>
+  mutate(resolution = if_else(
+    grepl("30AS$|-1KM$", data_code) | (theme_number == 1 & data_code != "AEZ33"),
+    "1km", "10km"
+  ))
+
 # ==============================================================================
-# GAEZ v5 Crop Codes (Modules II-VI combined)
+# GAEZ v5 Crop Codes (themes 3-6)
 # ==============================================================================
+# Codes and names come from the FAO code lists in the GAEZ v5 bucket
+# (DIMENSION/GAEZ-V5.CROP-RES0x.csv). Crop groups are assigned here.
 
-# Module II (4-letter codes) - Theme 3
-gaez_crops_m2 <- tribble(
-  ~gaez_crop_code, ~name, ~gaez_crop_group,
-  "ALFA", "Alfalfa", "Fodder crops",
-  "BANA", "Banana", "Fruits",
-  "BARL", "Barley (the better of sbrl and wbrl)", "Cereals",
-  "BHSG", "Biomass highland sorghum", "Bioenergy feedstocks",
-  "BLSG", "Biomass lowland sorghum", "Bioenergy feedstocks",
-  "BSRG", "Biomass sorghum (best blsg, bhsg and btsg)", "Bioenergy feedstocks",
-  "BTSG", "Biomass temperate sorghum", "Bioenergy feedstocks",
-  "BRCH", "Brachiaria", "Bioenergy feedstocks",
-  "BCKW", "Buckwheat", "Cereals",
-  "CABB", "Cabbage", "Vegetables",
-  "COCC", "Cacao (comum)", "Narcotics and stimulants",
-  "COCH", "Cacao (hybrid)", "Narcotics and stimulants",
-  "COCO", "Cacao (the better of comum and hybrid)", "Narcotics and stimulants",
-  "CAME", "Camelina, all types", "Bioenergy feedstocks",
-  "CAMW", "Camelina, autumn and winter types", "Bioenergy feedstocks",
-  "CAMSP", "Camelina, spring types", "Bioenergy feedstocks",
-  "CARI", "Carinata", "Bioenergy feedstocks",
-  "CARIS", "Carinata spring types", "Bioenergy feedstocks",
-  "CARIW", "Carinata winter type", "Bioenergy feedstocks",
-  "CARR", "Carrot", "Vegetables",
-  "CASH", "Cashew", "Oil crops",
-  "CASV", "Cassava", "Roots and tubers",
-  "CAST", "Castor bean", "Oil crops",
-  "CHCK", "Chickpea", "Pulses",
-  "CITR", "Citrus", "Fruits",
-  "COCN", "Coconut", "Fruits",
-  "COFF", "Coffee (the better of arabica and robusta)", "Narcotics and stimulants",
-  "COFA", "Coffee arabica", "Narcotics and stimulants",
-  "COFR", "Coffee robusta", "Narcotics and stimulants",
-  "COTT", "Cotton", "Industrial crops",
-  "COWP", "Cowpea", "Pulses",
-  "DPEA", "Dry peas", "Pulses",
-  "RICD", "Dryland rice", "Cereals",
-  "COC3", "Dwarf coconut", "Fruits",
-  "ECAN", "Energy cane", "Bioenergy feedstocks",
-  "ECANV2", "Energy cane v2", "Bioenergy feedstocks",
-  "ECANV3", "Energy cane v3", "Bioenergy feedstocks",
-  "FIMLT", "Finger Millet", "Cereals",
-  "FLAX", "Flax fibre", "Industrial crops",
-  "FONI", "Fonio", "Cereals",
-  "FMLT", "Foxtail millet", "Cereals",
-  "GRAM", "Gram", "Pulses",
-  "GYAM", "Greater yam", "Roots and tubers",
-  "GRND", "Groundnut", "Oil crops",
-  "HMZE", "Highland maize (tropics)", "Cereals",
-  "HSRG", "Highland sorghum (tropics)", "Cereals",
-  "COC2", "Hybrid coconut", "Fruits",
-  "JATR", "Jatropha", "Bioenergy feedstocks",
-  "LMZE", "Lowland maize", "Cereals",
-  "LSRG", "Lowland sorghum", "Cereals",
-  "MCAU2", "Macauba palm, inter-cropping", "Bioenergy feedstocks",
-  "MCAU", "Macauba palm, single cropping", "Bioenergy feedstocks",
-  "MAIZ", "Maize (best of lmze, hmze and tmze)", "Cereals",
-  "MANGO", "Mango", "Fruits",
-  "MLLT", "Millet (better of fmlt and pmlt)", "Cereals",
-  "MISC", "Miscanthus", "Bioenergy feedstocks",
-  "NAPR", "Napier grass", "Fodder crops",
-  "OATS", "Oat", "Cereals",
-  "OILP", "Oil palm", "Oil crops",
-  "OKRA", "Okra", "Vegetables",
-  "OLIV", "Olive", "Oil crops",
-  "ONIO", "Onion", "Vegetables",
-  "PRUB", "Para-rubber", "Industrial crops",
-  "GRAS", "Pasture grasses", "Fodder crops",
-  "GRLG", "Pasture legumes", "Fodder crops",
-  "PMLT", "Pearl millet", "Cereals",
-  "BEAN", "Phaseolous bean", "Pulses",
-  "PIGP", "Pigeon pea", "Pulses",
-  "RAPE", "Rapeseed", "Oil crops",
-  "RCGR", "Reed canary grass", "Bioenergy feedstocks",
-  "RYES", "Rye (the better of srye and wrye)", "Cereals",
-  "SESA", "Sesame", "Oil crops",
-  "MZSI", "Silage maize", "Fodder crops",
-  "SOLA", "Solaris Tobacco", "Bioenergy feedstocks",
-  "SORG", "Sorghum (best of lsrg, hsrg and tsrg)", "Cereals",
-  "SOYB", "Soybean", "Oil crops",
-  "SBRL", "Spring barley", "Cereals",
-  "SRYE", "Spring rye", "Cereals",
-  "SWHE", "Spring wheat", "Cereals",
-  "SUGB", "Sugar beet", "Sugar crops",
-  "SUGC", "Sugar cane", "Sugar crops",
-  "SUNF", "Sunflower", "Oil crops",
-  "SPOT", "Sweet potato", "Roots and tubers",
-  "SWGR", "Switchgrass", "Bioenergy feedstocks",
-  "COC1", "Tall coconut", "Fruits",
-  "CYAM3", "Tannia (Xanthosoma sagittifolium)", "Roots and tubers",
-  "CYAM1", "Taro, dryland (Colocasia esculenta)", "Roots and tubers",
-  "CYAM2", "Taro, wetland (Colocasia esculenta)", "Roots and tubers",
-  "TEAS", "Tea (best of China, Assam and hybrid types)", "Narcotics and stimulants",
-  "TEFF", "Tef", "Cereals",
-  "TMZE", "Temperate/sub-tropical maize", "Cereals",
-  "TSRG", "Temperate/sub-tropical sorghum", "Cereals",
-  "TOBA", "Tobacco", "Narcotics and stimulants",
-  "TOMA", "Tomato", "Vegetables",
-  "TRIT", "Triticale", "Bioenergy feedstocks",
-  "WMEL", "Watermelon", "Fruits",
-  "RICW", "Wetland rice", "Cereals",
-  "WHEA", "Wheat (the better of swhe and wwhe)", "Cereals",
-  "WPOT", "White potato", "Roots and tubers",
-  "WYAM", "White yam", "Roots and tubers",
-  "WRYE", "Winter rye", "Cereals",
-  "WBRL", "Winter, sub-tropical and tropical highland barley", "Cereals",
-  "WWHE", "Winter, sub-tropical and tropical highland wheat", "Cereals",
-  "YAMS", "Yam (best of wyam, gyam, yyam)", "Roots and tubers",
-  "YYAM", "Yellow yam", "Roots and tubers"
-) |>
-  mutate(gaez_theme = 3)
+gaez_dimension <- function(code) {
+  url <- paste0(gaez_root, "/DIMENSION/GAEZ-V5.", code, ".csv")
+  x <- utils::read.csv(url, stringsAsFactors = FALSE, encoding = "UTF-8")
+  tibble(code = trimws(x$code), caption = trimws(x$caption))
+}
 
-# Module V (3-letter codes) - Theme 4
-gaez_crops_m5 <- tribble(
-  ~gaez_crop_code, ~name, ~gaez_crop_group,
-  "ALF", "Alfalfa", "Fodder crops",
-  "BAN", "Banana", "Fruits",
-  "BRL", "Barley", "Cereals",
-  "BSG", "Biomass sorghum", "Bioenergy feedstocks",
-  "BCH", "Brachiaria", "Bioenergy feedstocks",
-  "BCK", "Buckwheat", "Cereals",
-  "CAB", "Cabbage", "Vegetables",
-  "CAM", "Camelina", "Bioenergy feedstocks",
-  "CRT", "Carinata", "Bioenergy feedstocks",
-  "CAR", "Carrot", "Vegetables",
-  "CSH", "Cashew", "Oil crops",
-  "CSV", "Cassava", "Roots and tubers",
-  "CST", "Castor bean", "Oil crops",
-  "CHK", "Chickpea", "Pulses",
-  "CIT", "Citrus", "Fruits",
-  "COC", "Cocoa", "Narcotics and stimulants",
-  "CON", "Coconut", "Fruits",
-  "COF", "Coffee", "Narcotics and stimulants",
-  "COT", "Cotton", "Industrial crops",
-  "COW", "Cowpea", "Pulses",
-  "PEA", "Dry pea", "Pulses",
-  "RCD", "Dryland rice", "Cereals",
-  "ECN", "Energy cane (better of Energy cane Type Vertix 2 and Vertix 3)", "Bioenergy feedstocks",
-  "EC2", "Energy cane Type Vertix 2 (developed by GranBio)", "Bioenergy feedstocks",
-  "EC3", "Energy cane Type Vertix3 (developed by GranBio)", "Bioenergy feedstocks",
-  "FLX", "Flax", "Industrial crops",
-  "FML", "Foxtail millet", "Cereals",
-  "GRM", "Gram", "Pulses",
-  "GRD", "Groundnut", "Oil crops",
-  "JTR", "Jatropha", "Bioenergy feedstocks",
-  "MCA", "Macauba palm", "Bioenergy feedstocks",
-  "MZE", "Maize", "Cereals",
-  "MNG", "Mango", "Fruits",
-  "MIS", "Miscanthus", "Bioenergy feedstocks",
-  "NAP", "Napier grass", "Fodder crops",
-  "OAT", "Oat", "Cereals",
-  "OLP", "Oil palm", "Oil crops",
-  "OLV", "Olive", "Oil crops",
-  "ONI", "Onion", "Vegetables",
-  "PML", "Pearl millet", "Cereals",
-  "PHB", "Phaseolus bean", "Pulses",
-  "PIG", "Pigeonpea", "Pulses",
-  "RSD", "Rapeseed", "Oil crops",
-  "RCG", "Reed canary grass", "Bioenergy feedstocks",
-  "RUB", "Rubber", "Industrial crops",
-  "RYE", "Rye", "Cereals",
-  "SES", "Sesame", "Oil crops",
-  "MZS", "Silage maize", "Cereals",
-  "SOL", "Solaris energy tobacco", "Bioenergy feedstocks",
-  "SRG", "Sorghum", "Cereals",
-  "SOY", "Soybean", "Oil crops",
-  "SUB", "Sugar beet", "Sugar crops",
-  "SUC", "Sugar cane", "Sugar crops",
-  "SFL", "Sunflower", "Oil crops",
-  "SPO", "Sweet potato", "Roots and tubers",
-  "SWG", "Switchgrass", "Bioenergy feedstocks",
-  "CYA", "Taro", "Roots and tubers",
-  "TEA", "Tea", "Narcotics and stimulants",
-  "TOB", "Tobacco", "Narcotics and stimulants",
-  "TOM", "Tomato", "Vegetables",
-  "TRI", "Triticale", "Bioenergy feedstocks",
-  "RCW", "Wetland rice", "Cereals",
-  "WHE", "Wheat", "Cereals",
-  "WPO", "White potato", "Roots and tubers",
-  "YAM", "Yam", "Roots and tubers"
-) |>
-  mutate(gaez_theme = 4)
-
-# Module VI (3-letter codes) - Theme 5
-gaez_crops_m6_t5 <- tribble(
-  ~gaez_crop_code, ~name,
-  "NES", "All other crops not elsewhere included (mainly spices, fibre crops)",
-  "BAN", "Banana and Plantain",
-  "BRL", "Barley",
-  "CSV", "Cassava",
-  "COC", "Cocoa",
-  "CON", "Coconut",
-  "COF", "Coffee",
-  "FDD", "Fodder crops",
-  "FRT", "Fruits and Nuts",
-  "GRD", "Groundnuts (with shell)",
-  "MZE", "Maize",
-  "MLT", "Millet",
-  "OLP", "Oil palm fruit",
-  "OOC", "Olives and other minor oil crops",
-  "OCE", "Other cereals (oats, rye, buckwheat and other minor grains)",
-  "OVG", "Other vegetables (i.e. all vegetables except tomato)",
-  "RUB", "Para rubber",
-  "PLS", "Pulses",
-  "RSD", "Rapeseed",
-  "RCW", "Rice",
-  "COT", "Seed cotton",
-  "SES", "Sesame seed",
-  "SRG", "Sorghum",
-  "SOY", "Soybean",
-  "SUB", "Sugar beet",
-  "SUC", "Sugarcane",
-  "SFL", "Sunflower seed",
-  "TEA", "Tea & Mate leaves",
-  "TOB", "Tobacco leaves",
-  "TOM", "Tomato",
-  "WHE", "Wheat",
-  "POT", "White potato, Sweet potato",
-  "ORT", "Yams (and other minor root crops)",
-  "ALL", "All crops (1-33)",
-  "MAJ", "Major crops (1-9, 11,12, 14-20, 22-24)",
-  "CER", "Cereal crops (1-7)",
-  "OIL", "Oil crops (14-20)",
-  "RTS", "Root and tuber crops (8-9)"
-) |>
-  mutate(gaez_theme = 5, gaez_crop_group = NA_character_)
-
-# Module VI (3-letter codes) - Theme 6
-gaez_crops_m6_t6 <- tribble(
-  ~gaez_crop_code, ~name,
-  "GAP", "All crops",
-  "BAN", "Banana and Plantain",
-  "BRL", "Barley",
-  "CSV", "Cassava",
-  "GCE", "Cereal crops",
-  "COT", "Cotton",
-  "GRD", "Groundnut",
-  "MZE", "Maize",
-  "MLT", "Millet",
-  "GOI", "Oil crops",
-  "OLP", "Oil palm fruit",
-  "OCE", "Other cereals (oats, rye, buckwheat and other minor grains)",
-  "RSD", "Rapeseed",
-  "RCW", "Rice",
-  "GRT", "Root and tuber crops",
-  "SES", "Sesame seed",
-  "SRG", "Sorghum",
-  "SOY", "Soybean",
-  "SUB", "Sugar beet",
-  "SUC", "Sugarcane",
-  "SFL", "Sunflower seed",
-  "TOB", "Tobacco leaves",
-  "WHE", "Wheat",
-  "POT", "White potato, Sweet potato"
-) |>
-  mutate(gaez_theme = 6, gaez_crop_group = NA_character_)
-
-# Combine all crop tables
-gaez_crops <- bind_rows(
-  gaez_crops_m2,
-  gaez_crops_m5,
-  gaez_crops_m6_t5,
-  gaez_crops_m6_t6
+crop_groups_res02 <- list(
+  "Bioenergy feedstocks" = c("BHSG", "BLSG", "BRCH", "BSRG", "BTSG", "CAME", "CAMSP", "CAMW", "CARI",
+                             "CARIS", "CARIW", "ECAN", "ECANV2", "ECANV3", "JATR", "MCAU", "MCAU2",
+                             "MISC", "RCGR", "SOLA", "SWGR", "TRIT"),
+  "Cereals" = c("BARL", "BCKW", "FIMLT", "FMLT", "FONIO", "HBRL", "HMZE", "HSRG", "HWHE", "LMZE",
+                "LSRG", "MAIZ", "MLLT", "OATS", "PMLT", "RICD", "RICW", "RYES", "SBRL", "SORG",
+                "SRYE", "SWHE", "TBRL", "TEFF", "TMZE", "TSRG", "TWHE", "WBRL", "WHEA", "WRYE", "WWHE"),
+  "Fodder crops" = c("ALFA", "GRAS", "GRLG", "MZSI", "NAPR"),
+  "Fruits" = c("AVOC", "AVOCST", "AVOCTH", "AVOCTL", "BANA", "CITR", "COC1", "COC2", "COC3", "COCN",
+               "MANG", "WMEL"),
+  "Industrial crops" = c("COTT", "FLAX", "PRUB"),
+  "Narcotics and stimulants" = c("COCC", "COCH", "COCO", "COFA", "COFF", "COFR", "TEAS", "TOBA"),
+  "Oil crops" = c("CASH", "CAST", "GRND", "OILP", "OLIV", "RAPE", "SESA", "SOYB", "SRAP", "SUNF", "WRAP"),
+  "Pulses" = c("BEAN", "CHCK", "COWP", "DPEA", "GRAM", "PIGP"),
+  "Roots and tubers" = c("CASV", "GYAM", "SPOT", "TANN", "TARODL", "TAROWL", "WPOT", "WYAM", "YAMS", "YYAM"),
+  "Sugar crops" = c("SUGB", "SUGC"),
+  "Vegetables" = c("CABB", "CARR", "OKRA", "ONIO", "TOMA")
 )
+
+crop_groups_res05 <- list(
+  "Bioenergy feedstocks" = c("BCH", "BSG", "CAM", "CRT", "EC2", "EC3", "ECN", "JTR", "MCA", "MIS",
+                             "RCG", "SOL", "SWG", "TRI"),
+  "Cereals" = c("BCK", "BRL", "FIML", "FML", "FONIO", "MZE", "MZS", "OAT", "PML", "RCD", "RCW", "RYE",
+                "SRG", "TEF", "WHE"),
+  "Fodder crops" = c("ALF", "NAP", "PST"),
+  "Fruits" = c("AVOC", "AVOST", "AVOTH", "AVOTL", "BAN", "CIT", "CON", "MNG", "WMEL"),
+  "Industrial crops" = c("COT", "FLX", "RUB"),
+  "Narcotics and stimulants" = c("COC", "COF", "TEA", "TOB"),
+  "Oil crops" = c("CSH", "CST", "GRD", "OLP", "OLV", "RSD", "SES", "SFL", "SOY"),
+  "Pulses" = c("CHK", "COW", "GRM", "PEA", "PHB", "PIG"),
+  "Roots and tubers" = c("CSV", "CYA", "SPO", "TANN", "TAROD", "TAROW", "WPO", "YAM"),
+  "Sugar crops" = c("SUB", "SUC"),
+  "Vegetables" = c("CAB", "CAR", "OKRA", "ONI", "TOM")
+)
+
+crop_table <- function(dimension, theme, groups = NULL) {
+  x <- gaez_dimension(dimension)
+  group <- NA_character_
+  if (!is.null(groups)) {
+    lookup <- stack(groups)
+    group <- as.character(lookup$ind[match(x$code, lookup$values)])
+    if (anyNA(group)) {
+      stop("No crop group for: ", paste(x$code[is.na(group)], collapse = ", "))
+    }
+  }
+  tibble(gaez_crop_code = x$code, name = x$caption, gaez_crop_group = group, gaez_theme = theme)
+}
+
+gaez_crops <- bind_rows(
+  crop_table("CROP-RES02", 3, crop_groups_res02),
+  crop_table("CROP-RES05", 4, crop_groups_res05),
+  crop_table("CROP-RES06", 5),
+  crop_table("CROP-RES07", 6)
+)
+
+# ==============================================================================
+# Class members of theme-1 mapsets (one raster per class)
+# ==============================================================================
+
+gaez_classes <- bind_rows(
+  gaez_dimension("LCC") |> mutate(data_code = "LR-LCC"),
+  gaez_dimension("SLC") |> mutate(data_code = "LR-SLC")
+) |>
+  select(data_code, class_code = code, description = caption)
+
+# ==============================================================================
+# Years covered by the annual time-series mapsets (*-TS)
+# ==============================================================================
+
+ts_listing <- jsonlite::fromJSON(paste0(
+  "https://storage.googleapis.com/storage/v1/b/fao-gismgr-gaez-v5-data/o",
+  "?prefix=DATA/GAEZ-V5/MAPSET/RES01-PRC-TS/&matchGlob=**.tif&fields=items(name)"
+))
+gaez_ts_years <- sort(as.integer(sub(".*\\.([0-9]{4})\\.tif$", "\\1", ts_listing$items$name)))
+
 
 # ==============================================================================
 # GAEZ v5 Scenarios (Time periods, Climate models, SSPs, Water management)
@@ -1217,13 +1060,10 @@ gaez_scenarios <- tribble(
     "SSP370", "Shared Socioeconomic Pathway 3-7.0",
     "SSP585", "Shared Socioeconomic Pathway 5-8.5"
   )) |>
-  bind_rows(tribble(
-    ~water_management_code, ~description,
-    "HRLM", "High input, Rain-fed, Low management",
-    "HILM", "High input, Irrigated, Low management",
-    "LRLM", "Low input, Rain-fed, Low management",
-    "LILM", "Low input, Irrigated, Low management"
-  )) |>
+  bind_rows(
+    gaez_dimension("INPUT") |>
+      select(water_management_code = code, description = caption)
+  ) |>
   bind_rows(tribble(
     ~water_supply, ~description,
     "WSI", "Water supply - Irrigated",
@@ -1238,7 +1078,7 @@ gaez_scenarios <- tribble(
 gaez_url_structure <- tribble(
   ~theme, ~filename_parts,
   # Theme 1: Static maps (land resources, soils, terrain)
-  1, list(c("variable_code")),
+  1, list(c("variable_code", "class")),
   # Theme 2: Agro-climatic resources (temperature, precipitation, etc.)
   2, list(c("variable_code", "time_period", "climate_model", "ssp")),
   # Theme 3: Agro-climatic potential yield (4-letter crop codes)
@@ -1259,13 +1099,14 @@ gaez_url_structure <- tribble(
 # This makes the data available to package functions but not directly exported
 # to users. Users can still access via helper functions.
 
-usethis::use_data(
+save(
   gaez_variables,
   gaez_crops,
   gaez_scenarios,
   gaez_url_structure,
-  internal = TRUE,
-  overwrite = TRUE,
+  gaez_classes,
+  gaez_ts_years,
+  file = "R/sysdata.rda",
   compress = "xz"
 )
 

@@ -50,7 +50,7 @@
 #'
 #' @section Learn more:
 #' \itemize{
-#'   \item GAEZ v5 portal: \url{https://gaez.fao.org/}
+#'   \item GAEZ v5 platform: \url{https://data.apps.fao.org/gaez/}
 #'   \item Package vignettes: \code{browseVignettes("gaezv5")}
 #'   \item Examples: \code{show_gaez_examples()}
 #' }
@@ -61,12 +61,12 @@
 #' @importFrom dplyr filter mutate select arrange group_by summarise bind_rows pull first
 #' @importFrom stringr str_detect str_to_lower str_to_upper str_starts str_ends str_remove str_extract
 #' @importFrom tibble tibble
-#' @importFrom httr HEAD status_code headers timeout
+#' @importFrom httr HEAD status_code timeout
 #' @importFrom tools file_ext
 #' @importFrom tidyr tribble
 #' @importFrom purrr map
 #' @importFrom grDevices dev.off hcl.colors png
-#' @importFrom utils adist download.file head
+#' @importFrom utils adist head
 NULL
 
 

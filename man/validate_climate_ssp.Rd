@@ -4,7 +4,12 @@
 \alias{validate_climate_ssp}
 \title{Validate and adjust climate model and SSP scenario based on time period}
 \usage{
-validate_climate_ssp(time_period, climate_model = NULL, ssp = "SSP370")
+validate_climate_ssp(
+  time_period,
+  climate_model = NULL,
+  ssp = "SSP370",
+  theme = NULL
+)
 }
 \arguments{
 \item{time_period}{Character - Time period code (e.g., "HP0120", "FP4160").
@@ -23,6 +28,10 @@ auto-selection. Valid options:
 \item Historical: "HIST" (automatically set)
 \item Future: "SSP126", "SSP370", "SSP585"
 }}
+
+\item{theme}{Numeric - Optional GAEZ theme number. Themes 2 and 3 publish no
+ENSEMBLE layers, so future periods of these themes require an individual
+climate model.}
 }
 \value{
 A list with two elements:
@@ -38,8 +47,8 @@ combination and automatically selects appropriate defaults when needed.
 }
 \details{
 Historical periods (HP*) only work with the AGERA5 climate model and HIST
-scenario. Future periods (FP*) require a climate model (default: ENSEMBLE)
-and an SSP scenario (SSP126, SSP370, or SSP585).
+scenario. Future periods (FP*) require a climate model (default: ENSEMBLE,
+except for themes 2 and 3) and an SSP scenario (SSP126, SSP370, or SSP585).
 }
 \examples{
 \dontrun{

@@ -23,7 +23,8 @@ load_gaez_data(
   mask_to_boundary = TRUE,
   keep_global = TRUE,
   return_metadata = FALSE,
-  interactive = TRUE
+  interactive = TRUE,
+  class = NULL
 )
 }
 \arguments{
@@ -47,7 +48,8 @@ Default is "RES05-YX" (attainable yield).}
 
 \item{water_supply}{Character - Water supply code (default: "WSR")}
 
-\item{resolution}{Character - Resolution ("1km", "10km", or NA)}
+\item{resolution}{Character - Resolution ("1km", "10km", or NA). See
+\code{build_gaez_url()}.}
 
 \item{download_dir}{Character - Custom download directory. If NULL, uses
 "Data/GAEZ/" or creates it if it doesn't exist.}
@@ -83,6 +85,9 @@ only the SpatRaster object.}
 \item{interactive}{Logical - Whether to prompt for user input when multiple
 matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 to automatically select the best match without prompting.}
+
+\item{class}{Character - Class code for per-class theme-1 variables
+("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.}
 }
 \value{
 If \code{return_metadata = FALSE} (default), returns a terra SpatRaster

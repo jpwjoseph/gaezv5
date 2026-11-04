@@ -26,8 +26,9 @@ or a list like \code{list("RES05-YX", "RES05-SI")}.}
 
 \item{time_periods}{Character vector - Time period codes to download. Default
 is NULL (uses single time_period from ...). Can specify multiple periods like
-c("HP0120", "FP4160", "FP6180") for time series analysis. Accepts both vectors
-and lists.}
+c("HP0120", "FP4160", "FP6180") for time series analysis. For annual
+time-series variables ("-TS"), give years, e.g. as.character(2000:2010).
+Accepts both vectors and lists.}
 
 \item{ssps}{Character vector - SSP scenarios to download. Default is NULL,
 which auto-selects based on time_periods: "HIST" for historical periods
@@ -48,7 +49,7 @@ with built-in progress tracking. Set to FALSE for sequential downloads
 (useful for debugging or when parallel downloads cause issues).}
 
 \item{...}{Other parameters passed to \code{download_gaez_dataset()}, such as
-download_dir, overwrite, verbose. Note: time_period, ssp, and climate_model
+download_dir, overwrite, verbose, water_supply, resolution, class. Note: time_period, ssp, and climate_model
 should NOT be passed via ... when using the vectorized parameters above.}
 }
 \value{

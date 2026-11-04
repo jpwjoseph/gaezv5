@@ -1,9 +1,8 @@
 #' Download GAEZ v5 Dataset
 #'
-#' Downloads a GAEZ v5 dataset from Google Cloud Storage with comprehensive
-#' validation, duplicate detection, and progress reporting. Supports automatic
-#' resumption if files already exist and intelligent path resolution across
-#' multiple common locations.
+#' Downloads a GAEZ v5 dataset from Google Cloud Storage with parameter
+#' validation and progress reporting. Existing files are reused, and interrupted
+#' transfers resume from the partial file.
 #'
 #' @param variable Character - Variable code (e.g., "RES05-YX", "RES02-YLD").
 #'   Default is "RES05-YX" (attainable yield).
@@ -16,7 +15,8 @@
 #' @param crop Character - Crop name or code (default: "WHEA" for wheat)
 #' @param water_management_level Character - Water management level (default: "HRLM")
 #' @param water_supply Character - Water supply code (default: "WSR")
-#' @param resolution Character - Resolution ("1km", "10km", or NA)
+#' @param resolution Character - Resolution ("1km", "10km", or NA). See
+#'   \code{build_gaez_url()}.
 #' @param download_dir Character - Custom download directory. If NULL, uses
 #'   "Data/GAEZ/" or creates it if it doesn't exist.
 #' @param overwrite Logical - Whether to overwrite existing files (default: FALSE).
@@ -27,6 +27,8 @@
 #' @param interactive Logical - Whether to prompt for user input when multiple
 #'   matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 #'   to automatically select the best match without prompting.
+#' @param class Character - Class code for per-class theme-1 variables
+#'   ("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.
 #'
 #' @returns A list with the following elements:
 #'   \itemize{
@@ -46,10 +48,14 @@
 #'   \item Builds the download URL using \code{build_gaez_url()}
 #'   \item Determines the download directory and checks for existing files
 #'     in multiple common locations
-#'   \item Performs a HEAD request to validate the URL exists
-#'   \item Downloads the file with progress reporting
-#'   \item Validates the downloaded file (checks file size, extension)
+#'   \item Downloads to a temporary \code{.part} file, which is renamed only
+#'     after an HTTP 200 response whose byte count matches the server's size.
+#'     Error responses leave no file behind; an interrupted transfer keeps the
+#'     \code{.part} file and resumes on the next call.
 #' }
+#'
+#' Existing files that are not GeoTIFFs (for example, saved error pages) are
+#' downloaded again.
 #'
 #' The function automatically searches for existing downloads in:
 #' \itemize{
@@ -88,8 +94,6 @@
 #' @seealso \code{\link{build_gaez_url}}, \code{\link{batch_download_gaez_datasets}}
 #'
 #' @export
-#' @importFrom httr HEAD status_code headers
-#' @importFrom tools file_ext
 download_gaez_dataset <- function(variable = "RES05-YX",
                                    time_period = "FP4160",
                                    start_year = NULL,
@@ -104,7 +108,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
                                    overwrite = FALSE,
                                    validate_inputs = TRUE,
                                    verbose = TRUE,
-                                   interactive = TRUE) {
+                                   interactive = TRUE,
+                                   class = NULL) {
   # Initialize result object
   result <- list(
     success = FALSE,
@@ -118,7 +123,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   )
 
   if (verbose) {
-    cat("\n[1/5] Building download URL...\n")
+    cat("\n[1/4] Building download URL...\n")
   }
 
   # Attempt to build download URL
@@ -138,7 +143,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
       water_management_level = water_management_level,
       water_supply = water_supply,
       resolution = resolution,
-      interactive = interactive
+      interactive = interactive,
+      class = class
     )
 
     # Restore user's testing mode setting
@@ -177,7 +183,7 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   # ====================
 
   if (verbose) {
-    cat("\n[2/5] Setting up download paths...\n")
+    cat("\n[2/4] Setting up download paths...\n")
   }
 
   # Extract filename from URL
@@ -218,20 +224,19 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   # ====================
 
   if (verbose) {
-    cat("\n[3/5] Checking for existing files...\n")
+    cat("\n[3/4] Checking for existing files...\n")
   }
 
   # Check multiple possible locations
   check_paths <- c(
     file_path, # Primary location
     file.path("Data", "GAEZ", filename), # Data/GAEZ/
-    file.path("GAEZ", filename), # Working directory GAEZ/
-    file.path("Data", "GAEZ_Niger_Analysis", filename) # Existing analysis folder
+    file.path("GAEZ", filename) # Working directory GAEZ/
   )
 
   existing_file <- NULL
   for (path in check_paths) {
-    if (file.exists(path)) {
+    if (is_tiff_file(path)) {
       existing_file <- path
       break
     }
@@ -250,6 +255,8 @@ download_gaez_dataset <- function(variable = "RES05-YX",
     return(result)
   } else if (!is.null(existing_file) && overwrite) {
     if (verbose) cat("\u2713 Existing file found, will overwrite\n")
+  } else if (file.exists(file_path)) {
+    if (verbose) cat("! Existing file is not a GeoTIFF; downloading it again\n")
   } else {
     if (verbose) cat("\u2713 No existing file found\n")
   }
@@ -259,97 +266,20 @@ download_gaez_dataset <- function(variable = "RES05-YX",
   # ====================
 
   if (verbose) {
-    cat("\n[4/5] Downloading file...\n")
+    cat("\n[4/4] Downloading file...\n")
   }
 
-  # Check if URL exists before downloading
-  tryCatch(
-    {
-      response <- HEAD(url)
-      if (status_code(response) != 200) {
-        result$message <- paste(
-          "File not available on server (HTTP",
-          status_code(response),
-          ")"
-        )
-        if (verbose) {
-          cat(
-            "\u2717 File not available on server (HTTP",
-            status_code(response),
-            ")\n"
-          )
-        }
-        return(result)
-      }
+  transfer <- fetch_gaez_files(url, file_path, progress = verbose)
+  result$download_time <- transfer$time[1]
 
-      # Get file size from headers
-      content_length <- headers(response)$`content-length`
-      if (!is.null(content_length)) {
-        expected_size <- as.numeric(content_length)
-      }
-    },
-    error = function(e) {
-      # Silently continue if URL check fails
-    }
-  )
-
-  # Download the file
-  start_time <- Sys.time()
-
-  tryCatch(
-    {
-      download_result <- download.file(
-        url = url,
-        destfile = file_path,
-        method = "auto",
-        mode = "wb",
-        quiet = !verbose
-      )
-
-      end_time <- Sys.time()
-      result$download_time <- as.numeric(end_time - start_time, units = "secs")
-
-      if (download_result == 0) {
-        # Successful download
-        result$success <- TRUE
-        result$file_size <- file.size(file_path)
-        result$message <- "Download completed successfully"
-
-        if (verbose) {
-          cat("\u2713 Download completed successfully\n")
-        }
-      } else {
-        result$message <- "Download failed (unknown error)"
-        if (verbose) cat("\u2717 Download failed\n")
-      }
-    },
-    error = function(e) {
-      result$message <- paste("Download error:", e$message)
-      if (verbose) cat("\u2717 Download error:", e$message, "\n")
-    }
-  )
-
-  # ====================
-  # 5. VALIDATE DOWNLOADED FILE
-  # ====================
-
-  if (result$success && file.exists(file_path)) {
-    if (verbose) {
-      cat("\n[5/5] Validating downloaded file...\n")
-    }
-
-    # Basic file validation
-    if (result$file_size > 0) {
-      # Check if it's a valid raster file (basic check)
-      file_ext <- tools::file_ext(filename)
-      if (tolower(file_ext) == "tif") {
-        if (verbose) cat("\u2713 File validation complete\n")
-      }
-    } else {
-      result$success <- FALSE
-      result$message <- "Downloaded file is empty"
-      if (verbose) cat("\u2717 Downloaded file is empty\n")
-    }
+  if (transfer$success[1]) {
+    result$success <- TRUE
+    result$file_size <- file.size(file_path)
+    result$message <- "Download completed successfully"
+    if (verbose) cat("\u2713 Download completed successfully\n")
+  } else {
+    result$message <- paste("Download failed:", transfer$error[1])
+    if (verbose) cat("\u2717", result$message, "\n")
   }
 
   return(result)
@@ -371,8 +301,9 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #'   \code{list("MZE", "WHE")}.
 #' @param time_periods Character vector - Time period codes to download. Default
 #'   is NULL (uses single time_period from ...). Can specify multiple periods like
-#'   c("HP0120", "FP4160", "FP6180") for time series analysis. Accepts both vectors
-#'   and lists.
+#'   c("HP0120", "FP4160", "FP6180") for time series analysis. For annual
+#'   time-series variables ("-TS"), give years, e.g. as.character(2000:2010).
+#'   Accepts both vectors and lists.
 #' @param ssps Character vector - SSP scenarios to download. Default is NULL,
 #'   which auto-selects based on time_periods: "HIST" for historical periods
 #'   (HP8100, HP0120) or "SSP370" for future periods (FP*). When time_periods
@@ -388,8 +319,9 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #'   with built-in progress tracking. Set to FALSE for sequential downloads
 #'   (useful for debugging or when parallel downloads cause issues).
 #' @param ... Other parameters passed to \code{download_gaez_dataset()}, such as
-#'   download_dir, overwrite, verbose. Note: time_period, ssp, and climate_model
-#'   should NOT be passed via ... when using the vectorized parameters above.
+#'   download_dir, overwrite, verbose, water_supply, resolution, class. Note:
+#'   time_period, ssp, and climate_model should NOT be passed via ... when
+#'   using the vectorized parameters above.
 #'
 #' @returns A named list of download results, one for each combination. Each
 #'   element is the result object from \code{download_gaez_dataset()}.
@@ -499,7 +431,6 @@ download_gaez_dataset <- function(variable = "RES05-YX",
 #' @seealso \code{\link{download_gaez_dataset}}
 #'
 #' @export
-#' @importFrom curl multi_download
 batch_download_gaez_datasets <- function(variables = "RES05-YX",
                                           crops = "MZE",
                                           time_periods = "HP0120",
@@ -588,11 +519,13 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 
   # Validate time periods against known values
   valid_periods <- c("HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100")
-  invalid_periods <- setdiff(time_periods, valid_periods)
+  is_year <- grepl("^[0-9]{4}$", time_periods)
+  invalid_periods <- setdiff(time_periods[!is_year], valid_periods)
   if (length(invalid_periods) > 0) {
     warning(
       "Unrecognized time period(s): ", paste(invalid_periods, collapse=", "), "\n",
       "Valid time periods: ", paste(valid_periods, collapse=", "),
+      " (or single years for time-series variables)",
       call. = FALSE
     )
   }
@@ -708,6 +641,12 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
 
   combinations <- combinations[valid_rows, ]
 
+  # Annual time-series layers have no climate model or SSP dimension
+  year_rows <- grepl("^[0-9]{4}$", combinations$time_period)
+  combinations$ssp[year_rows] <- NA_character_
+  combinations$climate_model[year_rows] <- NA_character_
+  combinations <- unique(combinations)
+
   if (nrow(combinations) == 0) {
     # Build helpful error message explaining validation rules
     error_msg <- paste0(
@@ -784,7 +723,11 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
           climate_model = combinations$climate_model[i],
           ssp = combinations$ssp[i],
           crop = combinations$crop[i],
-          water_management_level = combinations$water_management_level[i]
+          water_management_level = combinations$water_management_level[i],
+          water_supply = if (!is.null(dots$water_supply)) dots$water_supply else "WSR",
+          resolution = if (!is.null(dots$resolution)) dots$resolution else NA,
+          interactive = if (!is.null(dots$interactive)) dots$interactive else TRUE,
+          class = dots$class
         )
         list(success = TRUE, url = url, error = NULL)
       }, error = function(e) {
@@ -816,7 +759,7 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
         destfiles[i] <- file.path(download_dir, filename)
 
         # Check if file already exists
-        if (!overwrite && file.exists(destfiles[i])) {
+        if (!overwrite && is_tiff_file(destfiles[i])) {
           to_download[i] <- FALSE
         }
       } else {
@@ -861,17 +804,15 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
       cat(length(already_exist), "file(s) already exist (skipping)\n")
     }
 
-    # Perform parallel downloads using curl::multi_download
     if (length(files_to_download) > 0) {
       if (verbose_mode) {
         cat("Downloading", length(files_to_download), "file(s)...\n")
       }
 
       download_start <- Sys.time()
-      download_results <- multi_download(
+      download_results <- fetch_gaez_files(
         urls = urls[files_to_download],
         destfiles = destfiles[files_to_download],
-        resume = TRUE,
         progress = verbose_mode
       )
       download_end <- Sys.time()
@@ -906,8 +847,8 @@ batch_download_gaez_datasets <- function(variables = "RES05-YX",
           url = urls[i],
           message = if (dl_result$success) "Download completed successfully" else paste("Download failed:", dl_result$error),
           validation_errors = character(0),
-          file_size = if (file.exists(destfiles[i])) file.size(destfiles[i]) else NA,
-          download_time = NA,
+          file_size = if (dl_result$success) file.size(destfiles[i]) else NA,
+          download_time = dl_result$time,
           already_exists = FALSE
         )
       } else if (i %in% already_exist) {
@@ -1159,7 +1100,8 @@ load_gaez_data <- function(variable = "RES05-YX",
                             mask_to_boundary = TRUE,
                             keep_global = TRUE,
                             return_metadata = FALSE,
-                            interactive = TRUE) {
+                            interactive = TRUE,
+                            class = NULL) {
   # Check if terra is available
   if (!requireNamespace("terra", quietly = TRUE)) {
     stop(
@@ -1185,7 +1127,8 @@ load_gaez_data <- function(variable = "RES05-YX",
     overwrite = overwrite,
     validate_inputs = validate_inputs,
     verbose = verbose,
-    interactive = interactive
+    interactive = interactive,
+    class = class
   )
 
   # Check if download was successful
@@ -1329,4 +1272,84 @@ load_gaez_data <- function(variable = "RES05-YX",
       )
     }
   )
+}
+
+
+#' Download files through temporary ".part" files
+#'
+#' Each URL is written to `<destfile>.part` and renamed to `destfile` once the
+#' server answered with HTTP 200/206 and the byte count equals the size the
+#' server reported. Error responses leave no file; transport failures keep the
+#' partial file so the next call resumes it.
+#'
+#' @return data.frame with url, destfile, success, status_code, error, time
+#' @noRd
+fetch_gaez_files <- function(urls, destfiles, progress = FALSE) {
+  parts <- paste0(destfiles, ".part")
+  res <- curl::multi_download(urls, parts, resume = TRUE, progress = progress)
+
+  out <- data.frame(
+    url = urls,
+    destfile = destfiles,
+    success = FALSE,
+    status_code = res$status_code,
+    error = res$error,
+    time = res$time,
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_along(urls)) {
+    status <- res$status_code[i]
+    size <- if (file.exists(parts[i])) file.size(parts[i]) else NA_real_
+    expected <- expected_file_size(res$headers[[i]])
+    complete <- isTRUE(res$success[i]) &&
+      isTRUE(status %in% c(200L, 206L, 416L)) &&
+      !is.na(size) && (is.na(expected) || size == expected)
+
+    if (complete) {
+      if (file.exists(destfiles[i])) unlink(destfiles[i])
+      out$success[i] <- file.rename(parts[i], destfiles[i])
+      out$error[i] <- if (out$success[i]) NA_character_ else "could not rename .part file"
+    } else if (!is.na(status) && status >= 300) {
+      unlink(parts[i])
+      out$error[i] <- paste("HTTP", status)
+    } else if (is.na(out$error[i])) {
+      unlink(parts[i])
+      out$error[i] <- "incomplete transfer"
+    }
+  }
+  out
+}
+
+
+#' Total object size from response headers (Content-Range or Content-Length)
+#' @noRd
+expected_file_size <- function(headers) {
+  if (is.null(headers) || length(headers) == 0) return(NA_real_)
+  headers <- tolower(trimws(headers))
+  range <- grep("^content-range:", headers, value = TRUE)
+  if (length(range) > 0) {
+    total <- sub(".*/", "", range[length(range)])
+    return(suppressWarnings(as.numeric(total)))
+  }
+  length_hdr <- grep("^content-length:", headers, value = TRUE)
+  if (length(length_hdr) > 0) {
+    return(suppressWarnings(as.numeric(sub("^content-length:\\s*", "", length_hdr[length(length_hdr)]))))
+  }
+  NA_real_
+}
+
+
+#' TRUE if the file starts with a TIFF or BigTIFF signature
+#' @noRd
+is_tiff_file <- function(path) {
+  if (length(path) != 1 || is.na(path) || !file.exists(path) || file.size(path) < 8) {
+    return(FALSE)
+  }
+  con <- file(path, "rb")
+  on.exit(close(con))
+  sig <- readBin(con, "raw", 4)
+  little <- identical(sig[1:2], as.raw(c(0x49, 0x49))) && sig[3] %in% as.raw(c(0x2a, 0x2b))
+  big <- identical(sig[1:2], as.raw(c(0x4d, 0x4d))) && sig[4] %in% as.raw(c(0x2a, 0x2b))
+  little || big
 }

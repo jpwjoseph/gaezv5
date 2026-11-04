@@ -1,3 +1,57 @@
+# gaezv5 0.2.1
+
+## Bug fixes
+
+* `build_gaez_url()` and the download functions work for theme 1, theme 2 and
+  the annual time-series variables (`*-TS`). Earlier versions stopped with
+  "Theme must be 3, 4, 5, or 6" for these variables.
+* Theme-1 maps are read from `MAP/GAEZ-V5.<code>.tif`. Variable codes follow
+  FAO: `ELEV-ALOS-30M` and `SLOPE-MED` (previously `SOILFER.*`).
+* Themes 2 and 3 have no ENSEMBLE layers. Future periods of these themes now
+  stop with the list of available climate models instead of requesting a
+  file that does not exist.
+* Downloads are written to a `.part` file and renamed only after an HTTP 200
+  response with the expected size. Error responses leave no file behind and
+  are reported as failures in `batch_download_gaez_datasets()` (previously a
+  404 response was saved as `.tif` and reported as success). Existing files
+  that are not GeoTIFFs are downloaded again.
+* Single downloads no longer depend on `options(timeout)`, so large ~1 km
+  files complete on slow connections.
+* `batch_download_gaez_datasets(parallel = TRUE)` passes `water_supply`,
+  `resolution`, `class` and `interactive` from `...` to the URL builder.
+* `preview_gaez_map()` previously queried the FAO ArcGIS ImageServer, which
+  serves GAEZ v4 data (CRU TS 3.2 baseline, RCP scenarios, 30-year periods).
+  It now reads a reduced-resolution overview of the GAEZ v5 Cloud-Optimized
+  GeoTIFF directly from the FAO bucket. A global preview of a ~1 km layer
+  transfers under 1 MB.
+
+## New arguments
+
+* `resolution = "1km"` selects the ~1 km layers (theme 4 variables available
+  at both resolutions, and AEZ33). These layers cover HP8100 and HP0120 only.
+* `class` selects one raster of the per-class theme-1 variables `LR-LCC`
+  (land cover share, LC01-LC12) and `LR-SLC` (slope class share, SC01-SC10).
+* Time-series variables take a single year via `start_year` or `time_period`
+  (1980-2022); `batch_download_gaez_datasets(time_periods = <years>)`
+  downloads several years.
+* `options(gaezv5.gcs_root = ...)` changes the bucket root URL.
+
+## Data
+
+* Crop codes and names come from FAO's code lists
+  (`DIMENSION/GAEZ-V5.CROP-RES0x.csv`): 115 crops for theme 3 and 78 for
+  theme 4, including avocado, teff, fonio, okra, taro, tannia and watermelon.
+  Theme-3 codes `FONI`, `MANGO`, `CYAM1`-`CYAM3` are now `FONIO`, `MANG`,
+  `TARODL`, `TAROWL`, `TANN`.
+* Added `HWSDV22` and `LR-SLC`; `LR-LCC` is a per-class mapset.
+* Input-level descriptions follow FAO (available water content 200 mm/m,
+  rain-fed or irrigated, high or low input).
+
+## Other changes
+
+* `validate_gaez_parameters()` is exported and returns the resolved URL.
+* `httr::GET`, `httr::content` and `utils::download.file` are no longer used.
+
 # gaezv5 0.2.0
 
 ## New Features

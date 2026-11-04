@@ -15,7 +15,8 @@ build_gaez_url(
   water_management_level = "HRLM",
   water_supply = "WSR",
   resolution = NA,
-  interactive = TRUE
+  interactive = TRUE,
+  class = NULL
 )
 }
 \arguments{
@@ -23,62 +24,74 @@ build_gaez_url(
 (attainable yield). Use \code{lookup_gaez_variable()} to find variable codes.}
 
 \item{time_period}{Character - Time period code. Default is "FP4160" (2041-2060).
-Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100"}
+Valid options: "HP8100", "HP0120", "FP2140", "FP4160", "FP6180", "FP8100".
+For annual time-series variables (codes ending in "-TS") a year such as
+"2010" is accepted.}
 
 \item{start_year}{Numeric - Start year for time period lookup (optional). Can be
 provided alone or with end_year. If only start_year is given, returns the time
 period containing that year. If both years are provided and span multiple periods,
-prompts for selection. Must be between 1981-2100.}
+prompts for selection. Must be between 1981-2100. For time-series variables,
+the year of the layer (1980-2022).}
 
 \item{end_year}{Numeric - End year for time period lookup (optional). Can be
 provided alone or with start_year. If only end_year is given, returns the time
 period containing that year. Must be between 1981-2100.}
 
-\item{climate_model}{Character - Climate model. NULL for auto-selection based
-on time period. Historical periods use "AGERA5", future periods default to
-"ENSEMBLE". Other options: "GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR",
-"MRI-ESM2-0", "UKESM1-0-LL"}
+\item{climate_model}{Character - Climate model. NULL for auto-selection:
+historical periods use "AGERA5"; future periods of theme 4 use "ENSEMBLE".
+Themes 2 and 3 have no ENSEMBLE layers, so future periods require one of
+"GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR", "MRI-ESM2-0", "UKESM1-0-LL".}
 
 \item{ssp}{Character - SSP scenario. Default is "SSP370". Historical periods
 use "HIST". Future periods use "SSP126", "SSP370", or "SSP585".}
 
 \item{crop}{Character - Crop name or code. Default is "WHEA" (wheat).
-Use \code{lookup_gaez_crop()} to find crop codes.}
+Use \code{lookup_gaez_crop()} to find crop codes. Ignored for themes 1 and 2.}
 
-\item{water_management_level}{Character - Water management code. Default is
-"HRLM" (High input, Rain-fed, Low management). Other options: "HILM"
-(irrigated), "LRLM" (low input, rain-fed), "LILM" (low input, irrigated).}
+\item{water_management_level}{Character - Input/management code for themes
+3-4. Default is "HRLM" (rain-fed, high input). Other options: "HILM"
+(irrigated, high input), "LRLM" (rain-fed, low input), "LILM" (irrigated,
+low input).}
 
 \item{water_supply}{Character - Water supply code for actual yields/gaps
 (themes 5-6). Default is "WSR" (rain-fed). Other options: "WSI" (irrigated),
 "WST" (total).}
 
-\item{resolution}{Character - Resolution preference. Options: "1km", "10km", or
-NA (uses default for variable). Note: not all variables have multiple
-resolutions.}
+\item{resolution}{Character - "1km", "10km", or NA. NA selects the 10 km layer
+when a variable exists at both resolutions. The ~1 km layers of theme 4 cover
+the historical periods HP8100 and HP0120 only.}
 
 \item{interactive}{Logical - Whether to prompt for user input when multiple
 matches are found (for crops or time periods). Default is TRUE. Set to FALSE
 to automatically select the best match without prompting.}
+
+\item{class}{Character - Class code for theme-1 variables published as one
+raster per class: "LR-LCC" (land cover, "LC01"-"LC12") and "LR-SLC" (slope
+class, "SC01"-"SC10"). Ignored for other variables.}
 }
 \value{
 Character string containing the complete HTTPS download URL
 }
 \description{
-Constructs a complete download URL for GAEZ v5 datasets from Google Cloud
-Storage. Automatically validates parameters and suggests alternative
-resolutions or time series variants when available.
+Constructs the download URL of a GAEZ v5 GeoTIFF in the FAO Google Cloud
+Storage bucket. Validates the parameter combination for the variable's theme
+and reports alternative resolutions or time-series variants when available.
 }
 \details{
-The function handles different URL structures for different GAEZ themes:
+File names follow the FAO naming convention for each theme:
 \itemize{
-\item Theme 1: Land & Water Resources (static maps)
-\item Theme 2: Agro-climatic Resources (time series)
-\item Theme 3: Agro-climatic Potential Yield (4-letter crop codes)
-\item Theme 4: Suitability & Attainable Yield (3-letter crop codes)
-\item Theme 5: Actual Yields & Production (3-letter crop codes)
-\item Theme 6: Yield & Production Gaps (3-letter crop codes)
+\item Theme 1: \code{MAP/GAEZ-V5.<variable>.tif}, or
+\code{MAPSET/<variable>/GAEZ-V5.<variable>.<class>.tif}
+\item Theme 2: \code{GAEZ-V5.<variable>.<period>.<climate>.<ssp>.tif};
+time series: \code{GAEZ-V5.<variable>-TS.<year>.tif}
+\item Themes 3-4: \code{GAEZ-V5.<variable>.<period>.<climate>.<ssp>.<crop>.<input>.tif}
+\item Themes 5-6: \code{GAEZ-V5.<variable>.<crop>.<water_supply>.tif}
 }
+
+The bucket root defaults to
+\code{https://storage.googleapis.com/fao-gismgr-gaez-v5-data/DATA/GAEZ-V5} and
+can be changed with \code{options(gaezv5.gcs_root = "<url>")}.
 }
 \examples{
 \dontrun{
@@ -86,46 +99,25 @@ The function handles different URL structures for different GAEZ themes:
 build_gaez_url()
 
 # Specific crop and historical period
-build_gaez_url(
-  crop = "maize",
-  time_period = "HP0120",
-  climate_model = "AGERA5"
-)
+build_gaez_url(crop = "maize", time_period = "HP0120")
 
 # Using year ranges instead of period codes
-build_gaez_url(
-  crop = "sorghum",
-  start_year = 2041,
-  end_year = 2060,
-  ssp = "SSP370"
-)
+build_gaez_url(crop = "sorghum", start_year = 2041, end_year = 2060)
 
-# Using single year - finds containing period
-build_gaez_url(
-  crop = "maize",
-  start_year = 2050
-)
+# ~1 km suitability layer
+build_gaez_url(variable = "RES05-SX", crop = "maize", time_period = "HP0120",
+               resolution = "1km")
 
-# Year range spanning multiple periods - prompts for selection (interactive mode)
-build_gaez_url(
-  crop = "wheat",
-  start_year = 2030,
-  end_year = 2070
-)
+# Theme 1: single map and per-class mapset
+build_gaez_url(variable = "AEZ57")
+build_gaez_url(variable = "LR-LCC", class = "LC02")
 
-# Auto-select without prompting
-build_gaez_url(
-  crop = "wheat",
-  start_year = 2030,
-  end_year = 2070,
-  interactive = FALSE
-)
+# Theme 2: future periods need an individual climate model
+build_gaez_url(variable = "RES01-PRC", time_period = "FP4160",
+               climate_model = "MRI-ESM2-0")
 
-# Irrigated scenario
-build_gaez_url(
-  crop = "rice",
-  water_management_level = "HILM"
-)
+# Annual time series
+build_gaez_url(variable = "RES01-PRC-TS", start_year = 2010)
 }
 
 }
