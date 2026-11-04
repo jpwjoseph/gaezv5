@@ -49,8 +49,9 @@ with built-in progress tracking. Set to FALSE for sequential downloads
 (useful for debugging or when parallel downloads cause issues).}
 
 \item{...}{Other parameters passed to \code{download_gaez_dataset()}, such as
-download_dir, overwrite, verbose, water_supply, resolution, class. Note: time_period, ssp, and climate_model
-should NOT be passed via ... when using the vectorized parameters above.}
+download_dir, overwrite, verbose, water_supply, resolution, class. Note:
+time_period, ssp, and climate_model should NOT be passed via ... when
+using the vectorized parameters above.}
 }
 \value{
 A named list of download results, one for each combination. Each

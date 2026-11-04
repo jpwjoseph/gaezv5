@@ -15,7 +15,7 @@
 #'     \item SpatVector: Custom boundary object
 #'   }
 #' @param bbox Numeric vector - Custom bounding box as c(xmin, ymin, xmax, ymax)
-#'   in WGS84 coordinates. Overridden by country if both are specified.
+#'   in WGS84 coordinates. Overridden by country or location.
 #' @param width Numeric - Preview image width in pixels (default: 800)
 #' @param height Numeric - Preview image height in pixels (default: 600)
 #' @param viewer Character - Display method for preview. Options:
@@ -37,6 +37,14 @@
 #' @param opacity Numeric - Overlay opacity (0-1, default: 0.7)
 #' @param class Character - Class code for per-class theme-1 variables
 #'   ("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.
+#' @param location Numeric - Optional point \code{c(lon, lat)} in WGS84. The
+#'   preview covers a window of \code{radius_km} around the point, marks it,
+#'   and reports the full-resolution value at the point. Overridden by country.
+#' @param radius_km Numeric - Half-width of the window around \code{location}
+#'   in kilometres (default: 50).
+#' @param tiles Logical - Add the layer as server-rendered FAO WMTS tiles
+#'   (see \code{\link{gaez_wmts_url}}) as an extra overlay in the leaflet
+#'   viewer. Default FALSE.
 #'
 #' @return Depends on viewer type:
 #'   \itemize{
@@ -45,6 +53,8 @@
 #'   }
 #'   If return_data = TRUE, returns a list with map and raster data. The raster
 #'   has preview resolution; use \code{load_gaez_data()} for full resolution.
+#'   With \code{location}, the list also holds \code{location_value}, the
+#'   full-resolution value at the point.
 #'
 #' @details
 #' ## Preview Strategy
@@ -59,12 +69,13 @@
 #'
 #' ## Geographic Extents
 #'
-#' Three ways to specify extent:
+#' Four ways to specify extent:
 #' 1. **Global** (default): Shows entire world coverage
 #' 2. **Country**: Automatically retrieves boundary and crops to extent
-#' 3. **Custom bbox**: Manually specify rectangular bounds
+#' 3. **Location**: Window of \code{radius_km} around a point
+#' 4. **Custom bbox**: Manually specify rectangular bounds
 #'
-#' Priority: country > bbox > global
+#' Priority: country > location > bbox > global
 #'
 #' ## Visualization Options
 #'
@@ -106,6 +117,17 @@
 #'   time_period = "HP0120",
 #'   bbox = c(-20, 5, 20, 25)
 #' )
+#'
+#' # Window around a location, with the value at the point
+#' preview_gaez_map(
+#'   crop = "maize",
+#'   time_period = "HP0120",
+#'   location = c(36.8, -1.3),
+#'   radius_km = 100
+#' )
+#'
+#' # Add server-rendered FAO WMTS tiles as a second overlay
+#' preview_gaez_map(crop = "maize", time_period = "HP0120", tiles = TRUE)
 #'
 #' # Static plot for quick inspection
 #' preview_gaez_map(
@@ -161,7 +183,10 @@ preview_gaez_map <- function(variable = "RES05-YX",
                               color_palette = "YlOrRd",
                               na_color = "transparent",
                               opacity = 0.7,
-                              class = NULL) {
+                              class = NULL,
+                              location = NULL,
+                              radius_km = 50,
+                              tiles = FALSE) {
   
   # Match viewer argument
   viewer <- match.arg(viewer)
@@ -274,6 +299,15 @@ preview_gaez_map <- function(variable = "RES05-YX",
       cat("  Bbox:", paste(round(bbox_coords, 2), collapse = ", "), "\n")
     }
     
+  } else if (!is.null(location)) {
+    bbox_coords <- location_bbox(location, radius_km)
+    extent_label <- sprintf("%.3f, %.3f", location[1], location[2])
+
+    if (verbose) {
+      cat("  Extent:", radius_km, "km around", extent_label, "\n")
+      cat("  Bbox:", paste(round(bbox_coords, 2), collapse = ", "), "\n")
+    }
+
   } else if (!is.null(bbox)) {
     # User-provided bbox
     if (length(bbox) != 4) {
@@ -357,12 +391,33 @@ preview_gaez_map <- function(variable = "RES05-YX",
 
     raster_data <- result$raster
 
-    if (!is.null(bbox) && is.null(country)) {
+    if (is.null(country) && extent_label != "Global") {
       ext_obj <- terra::ext(c(bbox_coords[1], bbox_coords[3], bbox_coords[2], bbox_coords[4]))
       raster_data <- terra::crop(raster_data, ext_obj)
     }
   }
   
+  location_value <- NULL
+  if (!is.null(location)) {
+    location_value <- tryCatch(
+      read_gaez_point(validated$url, location[1], location[2]),
+      error = function(e) terra::extract(raster_data, matrix(location, ncol = 2))[[1]]
+    )
+    if (verbose) cat("  Value at location:", format(location_value), "\n")
+  }
+
+  tile_url <- NULL
+  if (isTRUE(tiles)) {
+    if (viewer != "leaflet") {
+      warning("tiles = TRUE requires viewer = \"leaflet\"", call. = FALSE)
+    } else {
+      tile_url <- tryCatch(gaez_wmts_url(validated$url), error = function(e) {
+        warning("Could not build the FAO WMTS URL: ", conditionMessage(e), call. = FALSE)
+        NULL
+      })
+    }
+  }
+
   # ====================
   # CREATE VISUALIZATION
   # ====================
@@ -393,14 +448,18 @@ preview_gaez_map <- function(variable = "RES05-YX",
       color_palette = color_palette,
       na_color = na_color,
       opacity = opacity,
-      verbose = verbose
+      verbose = verbose,
+      location = location,
+      location_value = location_value,
+      tile_url = tile_url
     )
   } else {
     map_obj <- create_static_preview(
       raster_data = raster_data,
       map_title = map_title,
       color_palette = color_palette,
-      verbose = verbose
+      verbose = verbose,
+      location = location
     )
   }
   
@@ -455,7 +514,8 @@ preview_gaez_map <- function(variable = "RES05-YX",
       extent = extent_label,
       variable = var_info$variable_name,
       crop = crop_desc,
-      time_period = time_desc
+      time_period = time_desc,
+      location_value = location_value
     ))
   } else {
     if (viewer == "leaflet") {
@@ -475,6 +535,9 @@ preview_gaez_map <- function(variable = "RES05-YX",
 #' @param na_color Character - Color for NA values
 #' @param opacity Numeric - Layer opacity
 #' @param verbose Logical - Print progress messages
+#' @param location Optional c(lon, lat) to mark
+#' @param location_value Value shown in the marker popup
+#' @param tile_url Optional WMTS URL template added as an overlay
 #'
 #' @return leaflet map object
 #'
@@ -482,7 +545,9 @@ preview_gaez_map <- function(variable = "RES05-YX",
 #' @noRd
 #' @importFrom leaflet leaflet addTiles addProviderTiles addRasterImage addLegend addLayersControl leafletOptions providers colorNumeric
 create_leaflet_preview <- function(raster_data, map_title, color_palette,
-                                    na_color, opacity, verbose) {
+                                    na_color, opacity, verbose,
+                                    location = NULL, location_value = NULL,
+                                    tile_url = NULL) {
   
   # Get valid values for color scale
   raster_values <- terra::values(raster_data, mat = FALSE)
@@ -544,12 +609,31 @@ create_leaflet_preview <- function(raster_data, map_title, color_palette,
       values = valid_values,
       title = map_title,
       position = "bottomright"
-    ) |>
-    leaflet::addLayersControl(
-      baseGroups = c("OpenStreetMap", "Satellite"),
-      overlayGroups = "GAEZ Data",
-      options = leaflet::layersControlOptions(collapsed = FALSE)
     )
+
+  overlays <- "GAEZ Data"
+  if (!is.null(tile_url)) {
+    map <- leaflet::addTiles(
+      map,
+      urlTemplate = tile_url,
+      group = "FAO WMTS",
+      attribution = "FAO & IIASA, GAEZ v5 (CC BY 4.0)",
+      options = leaflet::tileOptions(opacity = opacity)
+    )
+    overlays <- c(overlays, "FAO WMTS")
+  }
+  if (!is.null(location)) {
+    popup <- sprintf("lon %.4f, lat %.4f<br>value: %s", location[1], location[2],
+                     format(location_value))
+    map <- leaflet::addMarkers(map, lng = location[1], lat = location[2], popup = popup)
+  }
+
+  map <- leaflet::addLayersControl(
+    map,
+    baseGroups = c("OpenStreetMap", "Satellite"),
+    overlayGroups = overlays,
+    options = leaflet::layersControlOptions(collapsed = FALSE)
+  )
   
   if (verbose) {
     cat("  Interactive leaflet map created\n")
@@ -565,12 +649,14 @@ create_leaflet_preview <- function(raster_data, map_title, color_palette,
 #' @param map_title Character - Plot title
 #' @param color_palette Character - Color palette name
 #' @param verbose Logical - Print progress messages
+#' @param location Optional c(lon, lat) to mark
 #'
 #' @return NULL (invisibly)
 #'
 #' @keywords internal
 #' @noRd
-create_static_preview <- function(raster_data, map_title, color_palette, verbose) {
+create_static_preview <- function(raster_data, map_title, color_palette, verbose,
+                                  location = NULL) {
   
   terra::plot(
     raster_data,
@@ -578,6 +664,10 @@ create_static_preview <- function(raster_data, map_title, color_palette, verbose
     col = hcl.colors(100, color_palette),
     axes = TRUE
   )
+  if (!is.null(location)) {
+    terra::points(terra::vect(matrix(location, ncol = 2), crs = "EPSG:4326"),
+                  pch = 3, cex = 1.5, lwd = 2)
+  }
   
   if (verbose) {
     cat("  Static plot created\n")
@@ -658,5 +748,32 @@ read_gaez_preview <- function(url, bbox = NULL, width = 800, boundary = NULL) {
     }
     terra::rast(x, vals = terra::values(x))
   })
+}
+
+
+#' Full-resolution value of a remote GAEZ GeoTIFF at one point
+#' @noRd
+read_gaez_point <- function(url, lon, lat) {
+  with_gdal_http({
+    x <- terra::rast(paste0("/vsicurl/", url))
+    terra::extract(x, matrix(c(lon, lat), ncol = 2))[[1]]
+  })
+}
+
+
+#' Window of +/- radius_km around a c(lon, lat) point, clipped to the globe
+#' @noRd
+location_bbox <- function(location, radius_km) {
+  if (!is.numeric(location) || length(location) != 2 || anyNA(location) ||
+      abs(location[1]) > 180 || abs(location[2]) > 90) {
+    stop("location must be c(lon, lat) in WGS84 degrees", call. = FALSE)
+  }
+  if (!is.numeric(radius_km) || length(radius_km) != 1 || is.na(radius_km) || radius_km <= 0) {
+    stop("radius_km must be a positive number", call. = FALSE)
+  }
+  dlat <- radius_km / 111.32
+  dlon <- radius_km / (111.32 * max(cos(location[2] * pi / 180), 0.01))
+  c(max(location[1] - dlon, -180), max(location[2] - dlat, -90),
+    min(location[1] + dlon, 180), min(location[2] + dlat, 90))
 }
 

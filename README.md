@@ -51,6 +51,13 @@ preview_gaez_map(
   ssp = "SSP370",
   country = "Kenya"
 )
+
+# Window around a location; the popup shows the value at the point
+preview_gaez_map(crop = "maize", time_period = "HP0120",
+                 location = c(36.8, -1.3), radius_km = 100)
+
+# FAO's server-rendered WMTS tiles for any web map
+tiles <- gaez_wmts_url(build_gaez_url(crop = "maize", time_period = "HP0120"))
 ```
 
 ### Load Data Directly
@@ -433,6 +440,7 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 -   `resolution = "1km"` selects the ~1 km layers; `class` selects per-class theme-1 rasters
 -   Failed downloads no longer leave files behind or count as successes
 -   `preview_gaez_map()` reads GAEZ v5 overviews from the FAO bucket instead of the GAEZ v4 ImageServer
+-   `preview_gaez_map(location = c(lon, lat))` and `gaez_wmts_url()` for FAO WMTS tiles
 -   Crop codes updated to FAO's current lists (avocado, teff, fonio, okra, taro and others)
 
 ### v0.2.0 - Interactive Map Previews

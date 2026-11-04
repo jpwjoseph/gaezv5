@@ -45,3 +45,33 @@ test_that("previews read a coarse overview of the remote file", {
   expect_s4_class(x, "SpatRaster")
   expect_true(terra::ncol(x) >= 500 && terra::ncol(x) < 4320)
 })
+
+test_that("point values are read at full resolution from the remote file", {
+  skip_if_no_bucket()
+  url <- suppressMessages(build_gaez_url("AEZ33"))
+  value <- read_gaez_point(url, 2.1, 13.5)
+  local <- withr::local_tempfile(fileext = ".tif")
+  curl::curl_download(url, local, quiet = TRUE)
+  expect_equal(value, terra::extract(terra::rast(local), matrix(c(2.1, 13.5), ncol = 2))[[1]])
+})
+
+test_that("WMTS templates use the dimension members FAO publishes", {
+  skip_if_no_bucket()
+  url <- suppressMessages(build_gaez_url(crop = "maize", time_period = "HP0120", interactive = FALSE))
+  tiles <- gaez_wmts_url(url)
+  expect_match(tiles, "dim_PERIOD=HP0120&dim_CLIM=AGERA5&dim_SSP=HIST&dim_CROP-RES05=MZE&dim_WSIM-RES05=HRLM",
+               fixed = TRUE)
+})
+
+test_that("FAO WMTS serves a tile for a GAEZ v5 layer", {
+  skip_on_cran()
+  url <- suppressMessages(build_gaez_url(crop = "maize", time_period = "HP0120", interactive = FALSE))
+  tiles <- tryCatch(gaez_wmts_url(url), error = function(e) skip("bucket metadata not reachable"))
+  tile <- sub("{z}", "3", sub("{y}", "3", sub("{x}", "4", tiles, fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  res <- tryCatch(
+    curl::curl_fetch_memory(tile, handle = curl::new_handle(timeout = 20)),
+    error = function(e) skip(paste("data.apps.fao.org not reachable:", conditionMessage(e)))
+  )
+  expect_equal(res$status_code, 200)
+  expect_match(res$type, "^image/")
+})

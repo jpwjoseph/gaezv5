@@ -28,7 +28,10 @@ preview_gaez_map(
   color_palette = "YlOrRd",
   na_color = "transparent",
   opacity = 0.7,
-  class = NULL
+  class = NULL,
+  location = NULL,
+  radius_km = 50,
+  tiles = FALSE
 )
 }
 \arguments{
@@ -82,7 +85,7 @@ the historical periods HP8100 and HP0120 only.}
 }}
 
 \item{bbox}{Numeric vector - Custom bounding box as c(xmin, ymin, xmax, ymax)
-in WGS84 coordinates. Overridden by country if both are specified.}
+in WGS84 coordinates. Overridden by country or location.}
 
 \item{width}{Numeric - Preview image width in pixels (default: 800)}
 
@@ -120,6 +123,17 @@ See ?leaflet::colorNumeric for more options.}
 
 \item{class}{Character - Class code for per-class theme-1 variables
 ("LR-LCC", "LR-SLC"). See \code{build_gaez_url()}.}
+
+\item{location}{Numeric - Optional point \code{c(lon, lat)} in WGS84. The
+preview covers a window of \code{radius_km} around the point, marks it,
+and reports the full-resolution value at the point. Overridden by country.}
+
+\item{radius_km}{Numeric - Half-width of the window around \code{location}
+in kilometres (default: 50).}
+
+\item{tiles}{Logical - Add the layer as server-rendered FAO WMTS tiles
+(see \code{\link{gaez_wmts_url}}) as an extra overlay in the leaflet
+viewer. Default FALSE.}
 }
 \value{
 Depends on viewer type:
@@ -129,6 +143,8 @@ Depends on viewer type:
 }
 If return_data = TRUE, returns a list with map and raster data. The raster
 has preview resolution; use \code{load_gaez_data()} for full resolution.
+With \code{location}, the list also holds \code{location_value}, the
+full-resolution value at the point.
 }
 \description{
 Creates an interactive leaflet map preview of GAEZ v5 data without requiring
@@ -151,14 +167,15 @@ GDAL built without network support), the full file is downloaded with
 
 \subsection{Geographic Extents}{
 
-Three ways to specify extent:
+Four ways to specify extent:
 \enumerate{
 \item \strong{Global} (default): Shows entire world coverage
 \item \strong{Country}: Automatically retrieves boundary and crops to extent
+\item \strong{Location}: Window of \code{radius_km} around a point
 \item \strong{Custom bbox}: Manually specify rectangular bounds
 }
 
-Priority: country > bbox > global
+Priority: country > location > bbox > global
 }
 
 \subsection{Visualization Options}{
@@ -207,6 +224,17 @@ preview_gaez_map(
   time_period = "HP0120",
   bbox = c(-20, 5, 20, 25)
 )
+
+# Window around a location, with the value at the point
+preview_gaez_map(
+  crop = "maize",
+  time_period = "HP0120",
+  location = c(36.8, -1.3),
+  radius_km = 100
+)
+
+# Add server-rendered FAO WMTS tiles as a second overlay
+preview_gaez_map(crop = "maize", time_period = "HP0120", tiles = TRUE)
 
 # Static plot for quick inspection
 preview_gaez_map(

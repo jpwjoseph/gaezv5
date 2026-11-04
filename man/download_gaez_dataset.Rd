@@ -95,8 +95,8 @@ Error responses leave no file behind; an interrupted transfer keeps the
 \code{.part} file and resumes on the next call.
 }
 
-Existing files that are not GeoTIFFs (for example, error pages saved by
-earlier package versions) are downloaded again.
+Existing files that are not GeoTIFFs (for example, saved error pages) are
+downloaded again.
 
 The function automatically searches for existing downloads in:
 \itemize{

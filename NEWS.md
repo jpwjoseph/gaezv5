@@ -25,6 +25,17 @@
   GeoTIFF directly from the FAO bucket. A global preview of a ~1 km layer
   transfers under 1 MB.
 
+## New features
+
+* `preview_gaez_map(location = c(lon, lat), radius_km = 50)` previews a
+  window around a point, read from the cloud-optimized GeoTIFF (1-3 s), marks
+  the point and returns the full-resolution value at it (`location_value`).
+* `gaez_wmts_url()` returns the FAO GISMGR WMTS tile template
+  (`data.apps.fao.org/map/wmts/wmts`) for a layer, with the layer and
+  dimension members taken from FAO's metadata file next to each GeoTIFF.
+  `preview_gaez_map(tiles = TRUE)` adds these server-rendered tiles as an
+  overlay in the leaflet viewer.
+
 ## New arguments
 
 * `resolution = "1km"` selects the ~1 km layers (theme 4 variables available

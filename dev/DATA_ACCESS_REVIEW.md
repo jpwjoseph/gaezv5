@@ -157,6 +157,16 @@ those calls:
   services.
 - `pixelType = "S16"` (`R/rest_api.R:217`) truncates the Float32 yield and index values to
   16‑bit integers.
+- Independent projects that query `res05/ImageServer/query` in 2026 filter on
+  `year = '1981-2010'` and `model = 'CRUTS32'`. The `download_url` values they receive point to
+  GAEZ v4 files (`data.gaezdev.aws.fao.org/res05/CRUTS32/Hist/8110H/...`). Examples:
+  [MurrayLane/carrying-capacity-dashboard](https://github.com/MurrayLane/carrying-capacity-dashboard/blob/HEAD/analysis/gaez_2025/README.md),
+  [omrigalor/long-run-development-dynamics-simulator](https://github.com/omrigalor/long-run-development-dynamics-simulator/blob/HEAD/Tools/download_gaez.py),
+  [onaxyzogden/atlas](https://github.com/onaxyzogden/atlas/blob/HEAD/apps/api/scripts/download-gaez.ts).
+- The v5 counterpart is the FAO GISMGR WMTS (`data.apps.fao.org/map/wmts/wmts`). FAO's
+  [SoilFER app](https://github.com/un-fao/SoilFER/blob/HEAD/crop-suitability-app/src/components/layout/MapView.tsx)
+  selects one raster of a mapset with `dim_<DIMENSION>=<member>` parameters; `gaez_wmts_url()`
+  (0.2.1) builds such templates from the metadata file next to each GeoTIFF.
 
 Conclusion: when the REST call succeeds, `preview_gaez_map()` returns GAEZ v4 data. The
 defect is in the data source, not in the parameter mapping, so no change to the mapping fixes it.
